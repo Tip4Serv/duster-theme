@@ -1,26 +1,59 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0f;
+  --foreground: #f5f5f7;
+  --primary: #d4ff00;
+  --secondary: #00e5ff;
+  --accent: #9945ff;
+  --card: #13131a;
+  --border: #1f1f2e;
+  --muted: #808080;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+.glow-primary {
+  box-shadow: 0 0 20px rgba(212, 255, 0, 0.3);
+}
+
+.glow-secondary {
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px rgba(153, 69, 255, 0.3);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+}
+
+.gradient-card {
+  background: linear-gradient(135deg, rgba(212, 255, 0, 0.05) 0%, rgba(0, 229, 255, 0.05) 100%);
+}
+
+.grid-pattern {
+  background-image: 
+    linear-gradient(rgba(212, 255, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 255, 0, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
 }
