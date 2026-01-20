@@ -13,6 +13,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Duster Theme - Premium Gaming Products",
   description: "Your one-stop shop for premium gaming products, VIP ranks, and exclusive perks",
+  icons: {
+    icon: '/duster-theme-logo.png',
+  },
 };
 
 export default function RootLayout({

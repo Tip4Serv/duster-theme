@@ -1,5 +1,7 @@
 # Duster Theme - Tip4Serv Storefront
 
+![Duster Theme Banner](duster-theme-banner.png)
+
 A complete, modern storefront application built with Next.js that demonstrates full integration with the Tip4Serv API. This is a reference implementation for developers building checkout-enabled marketplaces.
 
 ## Overview
