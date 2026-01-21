@@ -10,6 +10,7 @@ import type {
   CheckoutIdentifiersResponse,
   CheckoutRequest,
   CheckoutResponse,
+  PrecheckoutRequest,
 } from '@/lib/schemas';
 
 // Fetch wrapper for client-side API calls
@@ -102,12 +103,26 @@ export function useCheckoutIdentifiers(storeId: string, productIds: number[]) {
 export function useCheckout(storeId: string) {
   return useMutation<CheckoutResponse, Error, CheckoutRequest>({
     mutationFn: async (checkoutData) => {
-      return fetchAPI(`/checkout?store=${storeId}&redirect=true`, {
+      return fetchAPI(`/checkout?store=${storeId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(checkoutData),
+      });
+    },
+  });
+}
+
+export function usePrecheckout(storeId: string) {
+  return useMutation<CheckoutResponse, Error, PrecheckoutRequest>({
+    mutationFn: async (precheckoutData) => {
+      return fetchAPI(`/precheckout?store=${storeId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(precheckoutData),
       });
     },
   });

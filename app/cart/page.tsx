@@ -7,17 +7,45 @@ import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function CartPage() {
   const cart = useCart();
   const router = useRouter();
+  const [handleCustomerIdentification, setHandleCustomerIdentification] = useState(false);
+  const [flagsLoaded, setFlagsLoaded] = useState(false);
 
   useEffect(() => {
     cart.clearIfExpired();
   }, []);
 
+  useEffect(() => {
+    const loadFlags = async () => {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          setHandleCustomerIdentification(!!data.handleCustomerIdentification);
+        }
+      } catch (err) {
+        console.error('Failed to load feature flags', err);
+      } finally {
+        setFlagsLoaded(true);
+      }
+    };
+    loadFlags();
+  }, []);
+
   const handleCheckout = () => {
+    if (!flagsLoaded) {
+      return;
+    }
+
+    if (handleCustomerIdentification) {
+      router.push('/checkout');
+      return;
+    }
+
     router.push('/checkout');
   };
 
