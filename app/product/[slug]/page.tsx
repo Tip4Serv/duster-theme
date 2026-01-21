@@ -362,12 +362,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                       Subscription
                     </span>
                   )}
-                  {product.featured && (
-                    <span className="px-3 py-1.5 text-xs font-semibold rounded-full border border-primary/70 text-primary bg-background/60">
-                      Featured
-                    </span>
-                  )}
-                  {product.percent_off && product.percent_off > 0 && (
+                  {product.percent_off && product.percent_off > 0 && product.price > 0 && (
                     <span className="px-3 py-1.5 text-xs font-semibold rounded-full border border-primary/70 text-primary bg-background/60">
                       -{product.percent_off}%
                     </span>
@@ -412,41 +407,41 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
               <div className="flex items-baseline gap-4 mb-6">
                 <span className="text-5xl font-bold text-primary">
-                  ${calculateTotalPrice().toFixed(2)}
+                  {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
                 </span>
-                {product.subscription && product.period_num && product.duration_periodicity && (
+                {product.subscription && product.period_num > 0 && product.duration_periodicity ? (
                   <span className="text-lg text-muted">
-                    / {product.period_num > 1 && product.period_num} {product.duration_periodicity}
+                    / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
                     {product.period_num > 1 ? 's' : ''}
                   </span>
-                )}
-                {product.old_price && product.old_price > product.price && (
+                ) : null}
+                {product.old_price && product.old_price > product.price && product.price > 0 ? (
                   <span className="text-2xl text-muted line-through">
                     ${(product.old_price * quantity).toFixed(2)}
                   </span>
-                )}
-                {product.custom_fields && product.custom_fields.length > 0 && (
+                ) : null}
+                {product.custom_fields && product.custom_fields.length > 0 && product.price > 0 ? (
                   <span className="text-sm text-muted">
                     (Base: ${(product.price * quantity).toFixed(2)})
                   </span>
-                )}
+                ) : null}
               </div>
 
-              {product.subscription && (
+              {product.subscription ? (
                 <div className="mb-6 p-4 rounded-lg bg-secondary/10 border border-secondary/20">
                   <p className="text-sm">
                     <span className="font-semibold">Subscription:</span> Renews every{' '}
-                    {product.period_num && product.period_num > 1 && product.period_num} {product.duration_periodicity}
+                    {product.period_num && product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
                     {product.period_num && product.period_num > 1 ? 's' : ''}
                   </p>
-                  {product.trial && product.trial > 0 && (
+                  {product.trial && product.trial > 0 ? (
                     <p className="text-sm mt-2">
                       <span className="font-semibold text-primary">Free Trial:</span> {product.trial} day
                       {product.trial > 1 ? 's' : ''}
                     </p>
-                  )}
+                  ) : null}
                 </div>
-              )}
+              ) : null}
 
               {product.description && (
                 <div className="mb-6">

@@ -33,15 +33,15 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   
   const productIds = useMemo(() => cart.items.map(item => item.product.id), [cart.items]);
-  // Prefer numeric store id; fall back to domain then default teststore
-  const storeId = (store?.id ? store.id.toString() : undefined) || store?.domain || 'teststore';
+  // Use numeric store id when available
+  const storeId = store?.id ? store.id.toString() : undefined;
   
   const { data: identifiersData, isLoading: loadingIdentifiers } = useCheckoutIdentifiers(
-    storeId,
+    storeId || '',
     productIds
   );
   
-  const checkoutMutation = useCheckout(storeId);
+  const checkoutMutation = useCheckout(storeId || '');
   
   const [formData, setFormData] = useState<Partial<CheckoutUser>>({
     email: '',
@@ -55,14 +55,19 @@ function CheckoutContent() {
 
   // Initialize from localStorage on mount
   useEffect(() => {
-    const savedDiscordId = localStorage.getItem('checkout_discord_id');
-    const savedSteamId = localStorage.getItem('checkout_steam_id');
+    const savedFormData = localStorage.getItem('checkout_form_data');
     
-    setFormData(prev => ({
-      ...prev,
-      ...(savedDiscordId && { discord_id: savedDiscordId }),
-      ...(savedSteamId && { steam_id: savedSteamId }),
-    }));
+    if (savedFormData) {
+      try {
+        const parsed = JSON.parse(savedFormData);
+        setFormData(prev => ({
+          ...prev,
+          ...parsed,
+        }));
+      } catch (e) {
+        console.error('Failed to parse saved form data:', e);
+      }
+    }
     
     setIsHydrated(true);
   }, []);
@@ -77,9 +82,9 @@ function CheckoutContent() {
     if (discordId) {
       setFormData(prev => {
         const updated = { ...prev, discord_id: discordId };
+        localStorage.setItem('checkout_form_data', JSON.stringify(updated));
         return updated;
       });
-      localStorage.setItem('checkout_discord_id', discordId);
       // Clean up URL
       window.history.replaceState({}, '', '/checkout');
     }
@@ -87,39 +92,27 @@ function CheckoutContent() {
     if (steamId) {
       setFormData(prev => {
         const updated = { ...prev, steam_id: steamId };
+        localStorage.setItem('checkout_form_data', JSON.stringify(updated));
         return updated;
       });
-      localStorage.setItem('checkout_steam_id', steamId);
       // Clean up URL
       window.history.replaceState({}, '', '/checkout');
     }
   }, [searchParams, isHydrated]);
 
   useEffect(() => {
-    if (!isRedirecting && cart.items.length === 0) {
+    if (!isRedirecting && isHydrated && cart.items.length === 0) {
       router.push('/cart');
     }
-  }, []);
+  }, [isRedirecting, isHydrated, cart.items.length, router]);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear localStorage if user manually edits a stored OAuth field
-    if (field === 'discord_id' && value !== (localStorage.getItem('checkout_discord_id') || '')) {
-      if (value === '') {
-        localStorage.removeItem('checkout_discord_id');
-      } else {
-        localStorage.setItem('checkout_discord_id', value);
-      }
-    }
-    
-    if (field === 'steam_id' && value !== (localStorage.getItem('checkout_steam_id') || '')) {
-      if (value === '') {
-        localStorage.removeItem('checkout_steam_id');
-      } else {
-        localStorage.setItem('checkout_steam_id', value);
-      }
-    }
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      // Save all form data to localStorage
+      localStorage.setItem('checkout_form_data', JSON.stringify(updated));
+      return updated;
+    });
     
     if (errors[field]) {
       setErrors(prev => {
@@ -381,7 +374,9 @@ function CheckoutContent() {
                                     const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
                                     // Build redirect from current origin so it matches the domain the user is on
                                     const redirectUri = `${window.location.origin}/api/oauth/discord/callback`;
-                                    const state = window.location.origin; // so callback can redirect to the same origin
+                                    // Include current path in state so callback knows where to return
+                                    const returnPath = window.location.pathname + window.location.search;
+                                    const state = `${window.location.origin}|${returnPath}`; // format: origin|path
                                     const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify&state=${encodeURIComponent(state)}`;
                                     window.location.href = discordUrl;
                                   }}

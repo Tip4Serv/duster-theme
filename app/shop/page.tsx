@@ -171,25 +171,6 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4">
-        {/* Store Description */}
-        {store?.description && (
-          <div className="mb-12 text-center">
-            <div 
-              className="prose prose-invert max-w-none text-sm leading-relaxed inline-block"
-              dangerouslySetInnerHTML={{ __html: store.description }}
-            />
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Package className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold">Shop</h1>
-          </div>
-          <p className="text-muted">Browse our full collection of premium products</p>
-        </div>
-
         {/* Filters */}
         {categoriesError && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-red-500/10 p-3 text-sm text-red-400">
@@ -262,11 +243,6 @@ export default function ShopPage() {
                 })()}
               </div>
             </div>
-            {selectedCategoryData?.description?.trim() ? (
-              <div className="mb-10 rounded-lg border border-border bg-card p-4 text-sm prose prose-invert max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: selectedCategoryData.description }} />
-              </div>
-            ) : null}
           </>
         ) : null}
 
@@ -322,7 +298,7 @@ export default function ShopPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredProducts.map((product) => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard key={product.id} product={product} hideFeaturedBadge />
                     ))}
                   </div>
                 </>

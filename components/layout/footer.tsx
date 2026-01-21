@@ -4,9 +4,15 @@ import Link from 'next/link';
 import { useStore } from '@/hooks/use-api';
 import { FaFacebook, FaInstagram, FaYoutube, FaTwitch, FaDiscord, FaTiktok, FaSteam } from 'react-icons/fa';
 import { SiX } from 'react-icons/si';
+import type { Store } from '@/lib/schemas';
 
-export function Footer() {
-  const { data: store } = useStore();
+interface FooterProps {
+  initialStore?: Store | null;
+}
+
+export function Footer({ initialStore }: FooterProps) {
+  const { data: fetchedStore } = useStore();
+  const store = fetchedStore || initialStore;
   const currentYear = new Date().getFullYear();
 
   // Strip HTML tags from description

@@ -12,9 +12,10 @@ import { CustomFieldsModal } from './custom-fields-modal';
 
 type ProductCardProps = {
   product: ProductGeneral;
+  hideFeaturedBadge?: boolean;
 };
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardProps) {
   const cart = useCart();
   const [added, setAdded] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -76,12 +77,12 @@ export function ProductCard({ product }: ProductCardProps) {
                 Subscription
               </span>
             )}
-            {product.featured && (
+            {product.featured && !hideFeaturedBadge && (
               <span className="px-3 py-1.5 text-xs font-semibold rounded-full border border-primary/70 text-primary bg-background/60">
                 Featured
               </span>
             )}
-            {product.percent_off && product.percent_off > 0 && (
+            {product.percent_off && product.percent_off > 0 && product.price > 0 && (
               <span className="px-3 py-1.5 text-xs font-semibold rounded-full border border-primary/70 text-primary bg-background/60">
                 -{product.percent_off}%
               </span>
@@ -128,7 +129,7 @@ export function ProductCard({ product }: ProductCardProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-primary">
-                    ${product.price.toFixed(2)}
+                    {product.price > 0 ? `$${product.price.toFixed(2)}` : 'Free'}
                     {product.subscription && product.period_num && product.duration_periodicity && (
                       <span className="text-sm text-muted ml-1">
                         / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}

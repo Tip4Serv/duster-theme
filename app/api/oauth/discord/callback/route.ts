@@ -9,13 +9,27 @@ export async function GET(request: NextRequest) {
     const code = request.nextUrl.searchParams.get('code');
     const state = request.nextUrl.searchParams.get('state');
     
+    // Parse state to extract origin (format: origin|returnPath or just origin)
+    let baseOrigin = request.nextUrl.origin;
+    let returnPath = '/checkout';
+    
+    if (state && state.includes('|')) {
+      const parts = state.split('|');
+      baseOrigin = parts[0];
+      if (parts.length === 2) {
+        returnPath = parts[1];
+      }
+    } else if (state) {
+      baseOrigin = state;
+    }
+    
     if (!code) {
       return NextResponse.redirect(
-        new URL('/checkout?discord_error=no_code', request.url)
+        new URL('/checkout?discord_error=no_code', baseOrigin)
       );
     }
 
-    const redirectUri = `${state || request.nextUrl.origin}/api/oauth/discord/callback`;
+    const redirectUri = `${baseOrigin}/api/oauth/discord/callback`;
 
     // Exchange code for access token
     const tokenResponse = await fetch(`${DISCORD_API_URL}/oauth2/token`, {
@@ -33,7 +47,7 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       return NextResponse.redirect(
-        new URL('/checkout?discord_error=token_exchange', request.url)
+        new URL('/checkout?discord_error=token_exchange', baseOrigin)
       );
     }
 
@@ -48,22 +62,32 @@ export async function GET(request: NextRequest) {
     if (!userResponse.ok) {
       const errorText = await userResponse.text();
       return NextResponse.redirect(
-        new URL('/checkout?discord_error=get_user', request.url)
+        new URL('/checkout?discord_error=get_user', baseOrigin)
       );
     }
 
     const userData = await userResponse.json();
     
-    const baseOrigin = state || request.nextUrl.origin;
-    const redirectUrl = new URL(`/checkout`, baseOrigin);
+    // Use returnPath that was parsed at the beginning
+    const redirectUrl = new URL(returnPath, baseOrigin);
     redirectUrl.searchParams.set('discord_id', userData.id);
     
-    // Redirect back to checkout with Discord ID in URL
+    // Redirect back with Discord ID in URL
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error('❌ Discord OAuth error:', error);
+    
+    // Try to extract origin from state if available
+    const state = request.nextUrl.searchParams.get('state');
+    let baseOrigin = request.nextUrl.origin;
+    if (state && state.includes('|')) {
+      baseOrigin = state.split('|')[0];
+    } else if (state) {
+      baseOrigin = state;
+    }
+    
     return NextResponse.redirect(
-      new URL('/checkout?discord_error=unknown', request.url)
+      new URL('/checkout?discord_error=unknown', baseOrigin)
     );
   }
 }

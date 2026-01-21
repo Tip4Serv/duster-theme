@@ -8,9 +8,15 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Store } from '@/lib/schemas';
 
-export function Header() {
-  const { data: store } = useStore();
+interface HeaderProps {
+  initialStore?: Store | null;
+}
+
+export function Header({ initialStore }: HeaderProps) {
+  const { data: fetchedStore } = useStore();
+  const store = fetchedStore || initialStore;
   const cart = useCart();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

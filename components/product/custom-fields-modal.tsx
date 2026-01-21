@@ -183,7 +183,7 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
                   <h2 className="text-2xl font-bold mb-2">{product.name}</h2>
                   <div className="flex items-baseline gap-2">
                     <p className="text-3xl font-bold text-primary">
-                      ${calculateTotalPrice().toFixed(2)}
+                      {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
                     </p>
                     {product.subscription && product.period_num && product.duration_periodicity && (
                       <span className="text-sm text-muted">
@@ -491,7 +491,7 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
                   className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  {product.subscription && subscriptionType === 'recurring' ? 'Subscribe' : 'Add to Cart'} - ${calculateTotalPrice().toFixed(2)}
+                  {product.subscription && subscriptionType === 'recurring' ? 'Subscribe' : 'Add to Cart'} - {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
                   {product.subscription && subscriptionType === 'recurring' && product.period_num && product.duration_periodicity && (
                     <span>/ {product.period_num > 1 && product.period_num} {product.duration_periodicity}{product.period_num > 1 ? 's' : ''}</span>
                   )}

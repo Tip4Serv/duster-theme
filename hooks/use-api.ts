@@ -29,6 +29,7 @@ export function useStore() {
   return useQuery<Store>({
     queryKey: ['store', 'whoami'],
     queryFn: () => fetchAPI('/store/whoami'),
+    staleTime: 1000 * 60 * 5, // Revalidate every 5 minutes
   });
 }
 

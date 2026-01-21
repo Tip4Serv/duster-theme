@@ -1,4 +1,5 @@
 import { config } from '@/lib/config';
+import type { Store } from '@/lib/schemas';
 
 type CacheEntry<T> = {
   data: T;
@@ -56,4 +57,38 @@ export async function fetchFromTip4Serv(
     ...options,
     headers,
   });
+}
+
+// Server-side function to fetch store whoami with caching
+export async function getStoreWhoami(): Promise<Store | null> {
+  try {
+    // Check cache first
+    const cached = apiCache.get<Store>('store_whoami');
+    if (cached) {
+      return cached;
+    }
+
+    // Fetch from local API route
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/tip4serv/store/whoami`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch store whoami:', response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    // Cache the result
+    apiCache.set('store_whoami', data);
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching store whoami:', error);
+    return null;
+  }
 }
