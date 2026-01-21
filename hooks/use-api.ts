@@ -10,6 +10,8 @@ import type {
   CheckoutIdentifiersResponse,
   CheckoutRequest,
   CheckoutResponse,
+  CustomersResponse,
+  PrecheckoutRequest,
 } from '@/lib/schemas';
 
 // Fetch wrapper for client-side API calls
@@ -25,11 +27,12 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 // Store hooks
-export function useStore() {
+export function useStore(initialData?: Store | null) {
   return useQuery<Store>({
     queryKey: ['store', 'whoami'],
     queryFn: () => fetchAPI('/store/whoami'),
     staleTime: 1000 * 60 * 5, // Revalidate every 5 minutes
+    initialData: initialData ?? undefined,
   });
 }
 
@@ -79,11 +82,40 @@ export function useProducts(params?: {
   });
 }
 
-export function useProduct(slug: string, details: boolean = true) {
+// Customers hooks
+export function useCustomers(params?: {
+  page?: number;
+  maxPage?: number;
+  sort?: 'revenue' | string;
+  dateFilter?: string;
+}) {
+  const queryString = new URLSearchParams();
+  if (params?.page) queryString.set('page', params.page.toString());
+  if (params?.maxPage) queryString.set('max_page', params.maxPage.toString());
+  if (params?.sort) queryString.set('sort', params.sort);
+  if (params?.dateFilter) queryString.set('date_filter', params.dateFilter);
+
+  const query = queryString.toString();
+
+  return useQuery<CustomersResponse>({
+    queryKey: ['store', 'customers', params],
+    queryFn: () => fetchAPI(`/store/customers${query ? `?${query}` : ''}`),
+  });
+}
+
+type UseProductOptions = {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+};
+
+export function useProduct(slug: string, details: boolean = true, options?: UseProductOptions) {
   return useQuery<ProductDetailed>({
     queryKey: ['store', 'product', 'slug', slug, details],
     queryFn: () => fetchAPI(`/store/product/slug/${encodeURIComponent(slug)}?details=${details}`),
-    enabled: !!slug,
+    enabled: options?.enabled ?? !!slug,
+    staleTime: options?.staleTime,
+    gcTime: options?.gcTime,
   });
 }
 
@@ -102,12 +134,26 @@ export function useCheckoutIdentifiers(storeId: string, productIds: number[]) {
 export function useCheckout(storeId: string) {
   return useMutation<CheckoutResponse, Error, CheckoutRequest>({
     mutationFn: async (checkoutData) => {
-      return fetchAPI(`/checkout?store=${storeId}&redirect=true`, {
+      return fetchAPI(`/checkout?store=${storeId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(checkoutData),
+      });
+    },
+  });
+}
+
+export function usePrecheckout(storeId: string) {
+  return useMutation<CheckoutResponse, Error, PrecheckoutRequest>({
+    mutationFn: async (precheckoutData) => {
+      return fetchAPI(`/precheckout?store=${storeId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(precheckoutData),
       });
     },
   });

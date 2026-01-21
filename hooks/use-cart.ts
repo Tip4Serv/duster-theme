@@ -201,25 +201,31 @@ export const useCart = create<CartStore>()(
       },
 
       updateServerSelection: (productId: number, serverId: number, customFields?: Record<string, any>) => {
-        set((state) => ({
-          items: state.items.map((item) => {
+        set((state) => {
+          let applied = false;
+          const updatedItems = state.items.map((item) => {
             if (item.product.id !== productId) {
               return item;
             }
-            if (!customFields || Object.keys(customFields).length === 0) {
-              const itemHasNoCustomFields = !item.customFields || Object.keys(item.customFields).length === 0;
-              if (itemHasNoCustomFields) {
-                return { ...item, serverSelection: serverId };
-              }
-              return item;
-            }
-            if (!areCustomFieldsDifferent(item.customFields, customFields)) {
+
+            // If caller passes customFields, match precisely; otherwise apply to the first matching product instance.
+            const shouldApply = customFields
+              ? !areCustomFieldsDifferent(item.customFields, customFields)
+              : !applied;
+
+            if (shouldApply) {
+              applied = true;
               return { ...item, serverSelection: serverId };
             }
+
             return item;
-          }),
-          lastModified: Date.now(),
-        }));
+          });
+
+          return {
+            items: updatedItems,
+            lastModified: Date.now(),
+          };
+        });
       },
 
       updateDonationAmount: (productId: number, amount: number, customFields?: Record<string, any>) => {

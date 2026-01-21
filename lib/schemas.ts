@@ -65,6 +65,27 @@ export const ThemeSchema = z.object({
 
 export type Theme = z.infer<typeof ThemeSchema>;
 
+// Customers
+export const CustomerSchema = z.object({
+  user_id: z.number().optional(),
+  username: z.string(),
+  discord_id: z.string().optional(),
+  steam_id: z.string().optional(),
+  minecraft_uuid: z.string().optional(),
+  total_revenue: z.number(),
+  payments: z.number(),
+  avatar: z.string().optional(),
+});
+
+export type Customer = z.infer<typeof CustomerSchema>;
+
+export const CustomersResponseSchema = z.object({
+  customers: z.array(CustomerSchema),
+  customers_count: z.number().optional(),
+}).passthrough();
+
+export type CustomersResponse = z.infer<typeof CustomersResponseSchema>;
+
 // Category
 export const CategorySchema = z.object({
   id: z.number(),
@@ -100,7 +121,8 @@ export const ProductGeneralSchema = z.object({
   category: z.union([z.number(), z.object({ id: z.number(), name: z.string() })]).nullable(),
   subscription: z.boolean(),
   stock: z.number().optional(),
-  duration_periodicity: z.string().optional(),
+  // API sometimes returns boolean instead of string; allow both to prevent parse failures.
+  duration_periodicity: z.union([z.string(), z.boolean()]).optional(),
   period_num: z.number().optional(),
   trial: z.number().optional(),
   featured: z.boolean(),
@@ -180,8 +202,9 @@ export const ProductDetailedSchema = ProductGeneralSchema.extend({
   files: z.boolean(),
   giftcard: z.boolean(),
   enable_stock: z.boolean(),
-  cumul_sub: z.boolean(),
-  onetime_sub: z.boolean(),
+  // Tip4Serv may omit these flags; default to false when missing.
+  cumul_sub: z.boolean().optional().default(false),
+  onetime_sub: z.boolean().optional().default(false),
   enable_trial: z.boolean(),
   purchase_limit: z.any().optional(),
   custom_rules: z.array(CustomRuleSchema).optional(),
@@ -229,6 +252,16 @@ export const CheckoutRequestSchema = z.object({
 });
 
 export type CheckoutRequest = z.infer<typeof CheckoutRequestSchema>;
+
+// Precheckout Request (no user property)
+export const PrecheckoutRequestSchema = z.object({
+  products: z.array(CheckoutProductSchema),
+  redirect_success_checkout: z.string().optional(),
+  redirect_canceled_checkout: z.string().optional(),
+  redirect_pending_checkout: z.string().optional(),
+});
+
+export type PrecheckoutRequest = z.infer<typeof PrecheckoutRequestSchema>;
 
 // Checkout Identifiers Response
 export const CheckoutIdentifiersResponseSchema = z.object({

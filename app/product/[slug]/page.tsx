@@ -148,22 +148,13 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       setTimeout(() => setError(null), 5000);
       return;
     }
-
-    if (product.server_choice && product.server_options?.length && !serverSelection) {
-      setError('Please select a server');
-      setTimeout(() => setError(null), 5000);
-      return;
-    }
     
     setError(null);
     // Only pass subscriptionType if this is actually a subscription product
     const typeToPass = product.subscription ? subscriptionType : undefined;
     cart.addItem(product, quantity, customFields, typeToPass);
     if (serverSelection) {
-      cart.updateServerSelection(product.id, serverSelection);
-    }
-    if (serverSelection) {
-      cart.updateServerSelection(product.id, serverSelection);
+      cart.updateServerSelection(product.id, serverSelection, customFields);
     }
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -216,6 +207,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     // Only pass subscriptionType if this is actually a subscription product
     const typeToPass = product.subscription ? subscriptionType : undefined;
     cart.addItem(product, quantity, customFields, typeToPass);
+    if (serverSelection) {
+      cart.updateServerSelection(product.id, serverSelection, customFields);
+    }
     
     // Immediately redirect to cart
     router.push('/cart');

@@ -3,22 +3,132 @@
 import { useCart } from '@/hooks/use-cart';
 import { calculateNumberRangeCharge } from '@/lib/cart-utils';
 import { formatCustomFieldsForDisplay } from '@/lib/cart-utils';
-import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus, ArrowRight, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useStore } from '@/hooks/use-api';
+import { Notification, useNotification } from '@/components/ui/notification';
 
 export default function CartPage() {
   const cart = useCart();
   const router = useRouter();
+  const { data: store } = useStore();
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [handleCustomerIdentification, setHandleCustomerIdentification] = useState(false);
+  const [flagsLoaded, setFlagsLoaded] = useState(false);
+  const { notifications, show } = useNotification();
 
   useEffect(() => {
     cart.clearIfExpired();
   }, []);
 
-  const handleCheckout = () => {
-    router.push('/checkout');
+  useEffect(() => {
+    const loadFlags = async () => {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          setHandleCustomerIdentification(!!data.handleCustomerIdentification);
+        }
+      } catch (err) {
+        console.error('Failed to load feature flags', err);
+      } finally {
+        setFlagsLoaded(true);
+      }
+    };
+    loadFlags();
+  }, []);
+
+  const handleCheckout = async () => {
+    if (!store?.id) {
+      show('error', 'Store information is not available');
+      return;
+    }
+
+    if (!flagsLoaded) {
+      show('info', 'Loading checkout configuration, please try again.');
+      return;
+    }
+
+    if (handleCustomerIdentification) {
+      router.push('/checkout');
+      return;
+    }
+
+    setIsCheckingOut(true);
+
+    const precheckoutData = {
+      products: cart.items.map(item => {
+        const product: any = {
+          product_id: item.product.id,
+          type: item.product.subscription && item.subscriptionType === 'recurring' ? 'subscribe' : 'addtocart',
+          quantity: item.quantity,
+        };
+        
+        if (item.customFields && Object.keys(item.customFields).length > 0) {
+          product.custom_fields = item.customFields;
+        }
+        
+        if (item.serverSelection !== undefined && item.serverSelection !== null) {
+          product.server_selection = item.serverSelection;
+        }
+        
+        if (item.donationAmount !== undefined && item.donationAmount !== null && item.donationAmount > 0) {
+          product.donation_amount = item.donationAmount;
+        }
+        
+        return product;
+      }),
+      redirect_success_checkout: `${window.location.origin}/checkout/success`,
+      redirect_canceled_checkout: `${window.location.origin}/checkout/canceled`,
+      redirect_pending_checkout: `${window.location.origin}/checkout/pending`,
+    };
+
+    try {
+      const response = await fetch(`/api/tip4serv/precheckout?store=${store.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(precheckoutData),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Checkout failed. Please try again.';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.details) {
+            errorMessage = errorData.details;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (parseError) {
+          const text = await response.text();
+          if (text) {
+            errorMessage = text.slice(0, 200);
+          }
+        }
+        show('error', errorMessage);
+        setIsCheckingOut(false);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        show('error', 'No checkout URL provided by the server.');
+        setIsCheckingOut(false);
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      show('error', 'An error occurred during checkout. Please try again.');
+      setIsCheckingOut(false);
+    }
   };
 
   if (cart.items.length === 0) {
@@ -47,6 +157,20 @@ export default function CartPage() {
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4">
         <div className="max-w-6xl mx-auto">
+          {/* Notifications */}
+          <div className="fixed top-20 left-4 right-4 z-50 space-y-2 pointer-events-none md:top-20 md:right-4 md:left-auto md:w-96">
+            {notifications.map((notification) => (
+              <div key={notification.id} className="pointer-events-auto">
+                <Notification
+                  type={notification.type}
+                  message={notification.message}
+                  autoClose={notification.autoClose}
+                  onClose={notification.onClose}
+                />
+              </div>
+            ))}
+          </div>
+
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2">Shopping Cart</h1>
@@ -242,10 +366,20 @@ export default function CartPage() {
 
                   <button
                     onClick={handleCheckout}
-                    className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
+                    disabled={isCheckingOut}
+                    className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
-                    Proceed to Checkout
-                    <ArrowRight className="w-5 h-5" />
+                    {isCheckingOut ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Proceed to Checkout
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

@@ -118,7 +118,7 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
     const typeToPass = product.subscription ? subscriptionType : undefined;
     cart.addItem(product, quantity, customFields, typeToPass);
     if (serverSelection) {
-      cart.updateServerSelection(product.id, serverSelection);
+      cart.updateServerSelection(product.id, serverSelection, customFields);
     }
     onClose();
     

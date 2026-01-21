@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ThemeSwitcher } from './theme-switcher';
 import type { Store } from '@/lib/schemas';
 
 interface HeaderProps {
@@ -71,6 +72,7 @@ export function Header({ initialStore }: HeaderProps) {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
+            <ThemeSwitcher />
             {isActive('/') ? (
               <span className="text-sm text-white font-semibold cursor-default">
                 Home

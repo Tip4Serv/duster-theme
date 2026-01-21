@@ -168,8 +168,25 @@ export default function ShopPage() {
     };
   }, [allProducts.length, isLoading, hasMore]);
 
+  const bannerImage = selectedCategoryData?.image || '/home-banner.jpg';
+
   return (
     <div className="min-h-screen py-12">
+      {/* Category/Home Banner */}
+      <div className="px-4 mb-6">
+        <div className="relative rounded-2xl overflow-hidden border border-border bg-card">
+          <div className="absolute inset-0">
+            <Image src={bannerImage} alt="Category banner" fill className="object-cover opacity-40" unoptimized />
+          </div>
+          <div className="relative z-10 p-6 md:p-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 border border-primary/40 text-primary glow-primary text-xs font-semibold">
+              {selectedCategoryData ? selectedCategoryData.name : 'All Products'}
+            </div>
+            <h1 className="mt-3 text-2xl md:text-3xl font-bold">{store?.title || 'Shop'}</h1>
+          </div>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4">
         {/* Filters */}
         {categoriesError && (

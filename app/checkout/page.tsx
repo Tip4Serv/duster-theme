@@ -1,7 +1,7 @@
 'use client';
 
 import { useCart } from '@/hooks/use-cart';
-import { useStore, useCheckoutIdentifiers, useCheckout } from '@/hooks/use-api';
+import { useStore, useCheckoutIdentifiers, usePrecheckout, useCheckout } from '@/hooks/use-api';
 import { ShoppingCart, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -31,6 +31,8 @@ function CheckoutContent() {
   const { data: store } = useStore();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [handleCustomerIdentification, setHandleCustomerIdentification] = useState(false);
+  const [flagsLoaded, setFlagsLoaded] = useState(false);
   
   const productIds = useMemo(() => cart.items.map(item => item.product.id), [cart.items]);
   // Use numeric store id when available
@@ -42,6 +44,8 @@ function CheckoutContent() {
   );
   
   const checkoutMutation = useCheckout(storeId || '');
+  const precheckoutMutation = usePrecheckout(storeId || '');
+  const mutation = handleCustomerIdentification ? checkoutMutation : precheckoutMutation;
   
   const [formData, setFormData] = useState<Partial<CheckoutUser>>({
     email: '',
@@ -101,10 +105,27 @@ function CheckoutContent() {
   }, [searchParams, isHydrated]);
 
   useEffect(() => {
-    if (!isRedirecting && isHydrated && cart.items.length === 0) {
-      router.push('/cart');
+    const loadFlags = async () => {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          setHandleCustomerIdentification(!!data.handleCustomerIdentification);
+        }
+      } catch (err) {
+        console.error('Failed to load feature flags', err);
+      } finally {
+        setFlagsLoaded(true);
+      }
+    };
+    loadFlags();
+  }, []);
+
+  useEffect(() => {
+    if (flagsLoaded && isHydrated && !handleCustomerIdentification) {
+      router.replace('/cart');
     }
-  }, [isRedirecting, isHydrated, cart.items.length, router]);
+  }, [flagsLoaded, handleCustomerIdentification, isHydrated, router]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => {
@@ -194,7 +215,12 @@ function CheckoutContent() {
       }
     }
 
-    const checkoutData = {
+    if (!flagsLoaded) {
+      setCheckoutError('Loading checkout configuration, please try again.');
+      return;
+    }
+
+    const checkoutData: any = {
       products: cart.items.map(item => {
         const product: any = {
           product_id: item.product.id,
@@ -216,15 +242,18 @@ function CheckoutContent() {
         
         return product;
       }),
-      user: finalFormData,
       redirect_success_checkout: `${window.location.origin}/checkout/success`,
       redirect_canceled_checkout: `${window.location.origin}/checkout/canceled`,
       redirect_pending_checkout: `${window.location.origin}/checkout/pending`,
     };
 
+    if (handleCustomerIdentification) {
+      checkoutData.user = finalFormData;
+    }
+
     try {
       setIsRedirecting(true);
-      const response = await checkoutMutation.mutateAsync(checkoutData);
+      const response = await mutation.mutateAsync(checkoutData);
       
       if (response.url) {
         window.location.href = response.url;
@@ -428,13 +457,13 @@ function CheckoutContent() {
                 </div>
 
                 {/* Error Display */}
-                {checkoutMutation.isError && (
+                {mutation.isError && (
                   <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold text-red-500">Checkout Failed</p>
                       <p className="text-sm text-red-500/80 mt-1">
-                        {checkoutMutation.error?.message || 'An error occurred during checkout. Please try again.'}
+                        {mutation.error?.message || 'An error occurred during checkout. Please try again.'}
                       </p>
                     </div>
                   </div>

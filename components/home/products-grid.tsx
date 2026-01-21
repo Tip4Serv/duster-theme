@@ -15,11 +15,11 @@ export function ProductsGrid() {
     <>
       {/* Featured Products */}
       {featuredProducts.length > 0 ? (
-        <section className="py-16 relative">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-3 mb-8">
+        <section className="py-10 relative">
+          <div className="px-4">
+            <div className="flex items-center gap-2 mb-6">
               <TrendingUp className="w-6 h-6 text-primary" />
-              <h2 className="text-3xl font-bold">Featured Products</h2>
+              <h2 className="text-2xl font-bold">Top Picks</h2>
             </div>
 
             {isLoading ? (
@@ -29,7 +29,7 @@ export function ProductsGrid() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {featuredProducts.slice(0, 4).map((product) => (
                   <ProductCard key={product.id} product={product} hideFeaturedBadge />
                 ))}
@@ -40,10 +40,10 @@ export function ProductsGrid() {
       ) : null}
 
       {/* All Products */}
-      <section className="py-16 relative">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold">All Products</h2>
+      <section className="py-10 relative">
+        <div className="px-4">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold">Popular</h2>
             <Link href="/shop" className="text-primary hover:text-primary/80 font-medium flex items-center gap-2">
               View All
               <ArrowRight className="w-4 h-4" />
@@ -57,7 +57,7 @@ export function ProductsGrid() {
               ))}
             </div>
           ) : allProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {allProducts.slice(0, 8).map((product) => (
                 <ProductCard key={product.id} product={product} hideFeaturedBadge />
               ))}
