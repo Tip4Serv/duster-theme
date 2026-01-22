@@ -3,17 +3,20 @@
 import { useCart } from '@/hooks/use-cart';
 import { calculateNumberRangeCharge } from '@/lib/cart-utils';
 import { formatCustomFieldsForDisplay } from '@/lib/cart-utils';
-import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus, ArrowRight, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useStore } from '@/hooks/use-api';
 
 export default function CartPage() {
   const cart = useCart();
   const router = useRouter();
+  const { data: store } = useStore();
   const [handleCustomerIdentification, setHandleCustomerIdentification] = useState(false);
   const [flagsLoaded, setFlagsLoaded] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   useEffect(() => {
     cart.clearIfExpired();
@@ -36,8 +39,8 @@ export default function CartPage() {
     loadFlags();
   }, []);
 
-  const handleCheckout = () => {
-    if (!flagsLoaded) {
+  const handleCheckout = async () => {
+    if (!flagsLoaded || !store?.id) {
       return;
     }
 
@@ -46,7 +49,60 @@ export default function CartPage() {
       return;
     }
 
-    router.push('/checkout');
+    // Precheckout flow (direct API call)
+    setIsCheckingOut(true);
+
+    const precheckoutData = {
+      products: cart.items.map(item => {
+        const product: any = {
+          product_id: item.product.id,
+          type: item.product.subscription && item.subscriptionType === 'recurring' ? 'subscribe' : 'addtocart',
+          quantity: item.quantity,
+        };
+        
+        if (item.customFields && Object.keys(item.customFields).length > 0) {
+          product.custom_fields = item.customFields;
+        }
+        
+        if (item.serverSelection !== undefined && item.serverSelection !== null) {
+          product.server_selection = item.serverSelection;
+        }
+        
+        if (item.donationAmount !== undefined && item.donationAmount !== null && item.donationAmount > 0) {
+          product.donation_amount = item.donationAmount;
+        }
+        
+        return product;
+      }),
+      redirect_success_checkout: `${window.location.origin}/checkout/success`,
+      redirect_canceled_checkout: `${window.location.origin}/checkout/canceled`,
+      redirect_pending_checkout: `${window.location.origin}/checkout/pending`,
+    };
+
+    try {
+      const response = await fetch(`/api/tip4serv/precheckout?store=${store.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(precheckoutData),
+      });
+
+      if (!response.ok) {
+        setIsCheckingOut(false);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setIsCheckingOut(false);
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      setIsCheckingOut(false);
+    }
   };
 
   if (cart.items.length === 0) {
@@ -270,10 +326,20 @@ export default function CartPage() {
 
                   <button
                     onClick={handleCheckout}
-                    className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
+                    disabled={isCheckingOut || !flagsLoaded}
+                    className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
-                    Proceed to Checkout
-                    <ArrowRight className="w-5 h-5" />
+                    {isCheckingOut ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Proceed to Checkout
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

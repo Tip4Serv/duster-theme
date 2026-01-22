@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'cdn.tip4serv.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.z9y7-tip4serv.com',
+      },
     ],
   },
 };

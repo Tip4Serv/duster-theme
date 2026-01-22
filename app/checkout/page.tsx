@@ -122,12 +122,6 @@ function CheckoutContent() {
     loadFlags();
   }, []);
 
-  useEffect(() => {
-    if (flagsLoaded && isHydrated && !handleCustomerIdentification) {
-      router.replace('/cart');
-    }
-  }, [flagsLoaded, handleCustomerIdentification, isHydrated, router]);
-
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
@@ -171,52 +165,6 @@ function CheckoutContent() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Form submitted', { isRedirecting, loadingIdentifiers, formData });
-    setCheckoutError(null);
-
-    if (!validateForm()) {
-      console.log('Validation failed');
-      return;
-    }
-
-    let finalFormData: any = { ...formData };
-
-    // Ensure email is always included
-    if (!finalFormData.email) {
-      finalFormData.email = formData.email || '';
-    }
-
-    // Ensure all required identifiers are in finalFormData
-    requiredIdentifiers.forEach(identifier => {
-      const fieldKey = IDENTIFIER_FIELD_MAPPING[identifier] || identifier;
-      if (!(fieldKey in finalFormData)) {
-        finalFormData[fieldKey] = formData[fieldKey as keyof CheckoutUser] || '';
-      }
-    });
-
-    // If minecraft_username is provided and minecraft_uuid is required, look it up
-    if (
-      formData.minecraft_username &&
-      requiredIdentifiers.some(id => id === 'minecraft_uuid' || id === 'minecraft_uid')
-    ) {
-      try {
-        const response = await fetch(
-          `/api/minecraft/uuid?username=${encodeURIComponent(formData.minecraft_username)}`
-        );
-        if (!response.ok) {
-          throw new Error('Minecraft username not found');
-        }
-        const data = await response.json();
-        finalFormData.minecraft_uuid = data.uuid;
-        finalFormData.minecraft_username = formData.minecraft_username;
-      } catch (error) {
-        setCheckoutError('Could not find Minecraft UUID for the provided username. Please check the username and try again.');
-        return;
-      }
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCheckoutError(null);
 
