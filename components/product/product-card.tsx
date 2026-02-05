@@ -23,11 +23,13 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
   const { data: detailedProduct } = useProduct(product.slug);
 
   useEffect(() => {
-    // Check if product has custom fields or is a subscription that allows onetime purchase
+    // Check if product has custom fields, is a subscription that allows onetime purchase, is a donation product, or requires server selection
     if (detailedProduct) {
       const hasCustomFields = 'custom_fields' in detailedProduct && detailedProduct.custom_fields && detailedProduct.custom_fields.length > 0;
       const isSubscriptionWithChoice = detailedProduct.subscription && detailedProduct.onetime_sub === true;
-      setNeedsCustomFields(hasCustomFields || isSubscriptionWithChoice);
+      const isDonation = 'donation' in detailedProduct && detailedProduct.donation === true;
+      const hasServerChoice = 'server_choice' in detailedProduct && detailedProduct.server_choice === true;
+      setNeedsCustomFields(hasCustomFields || isSubscriptionWithChoice || isDonation || hasServerChoice);
     }
   }, [detailedProduct]);
 

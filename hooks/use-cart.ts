@@ -83,20 +83,23 @@ export const useCart = create<CartStore>()(
             newItems = currentItems.filter((item) => item.subscriptionType !== 'recurring');
           }
           
-          // Check if this exact product already exists in cart with the SAME custom fields
-          // If custom fields are different, treat as a separate item
+          // Check if this exact product already exists in cart with the SAME custom fields AND donation amount
+          // If custom fields or donation amount are different, treat as a separate item
           const existingItemIndex = newItems.findIndex((item) => {
             if (item.product.id !== product.id) {
               return false;
             }
-            // If both have no custom fields, it's the same item
+            // If both have no custom fields, check donation amount
             const item1Empty = !item.customFields || Object.keys(item.customFields).length === 0;
             const item2Empty = !customFields || Object.keys(customFields).length === 0;
             if (item1Empty && item2Empty) {
-              return true;
+              // Same custom fields (both empty), but check donation amount
+              return item.donationAmount === undefined;
             }
-            // If custom fields are identical, it's the same item
-            return !areCustomFieldsDifferent(item.customFields, customFields);
+            // Check if custom fields are identical AND donation amounts match
+            const sameCustomFields = !areCustomFieldsDifferent(item.customFields, customFields);
+            const sameDonation = item.donationAmount === undefined;
+            return sameCustomFields && sameDonation;
           });
 
           if (existingItemIndex >= 0) {
@@ -209,12 +212,12 @@ export const useCart = create<CartStore>()(
             if (!customFields || Object.keys(customFields).length === 0) {
               const itemHasNoCustomFields = !item.customFields || Object.keys(item.customFields).length === 0;
               if (itemHasNoCustomFields) {
-                return { ...item, serverSelection: serverId };
+                return { ...item, serverSelection: serverId, product: { ...(item.product as any), server_selection: serverId } };
               }
               return item;
             }
             if (!areCustomFieldsDifferent(item.customFields, customFields)) {
-              return { ...item, serverSelection: serverId };
+              return { ...item, serverSelection: serverId, product: { ...(item.product as any), server_selection: serverId } };
             }
             return item;
           }),
@@ -223,25 +226,31 @@ export const useCart = create<CartStore>()(
       },
 
       updateDonationAmount: (productId: number, amount: number, customFields?: Record<string, any>) => {
-        set((state) => ({
-          items: state.items.map((item) => {
-            if (item.product.id !== productId) {
+        set((state) => {
+          // Find the exact item to update - match product ID and custom fields
+          // This handles the case where the same product might have different donation amounts
+          let found = false;
+          const updatedItems = state.items.map((item) => {
+            if (item.product.id !== productId || found) {
               return item;
             }
+            // Match custom fields exactly
             if (!customFields || Object.keys(customFields).length === 0) {
               const itemHasNoCustomFields = !item.customFields || Object.keys(item.customFields).length === 0;
-              if (itemHasNoCustomFields) {
+              if (itemHasNoCustomFields && !item.donationAmount) {
+                found = true;
                 return { ...item, donationAmount: amount };
               }
               return item;
             }
             if (!areCustomFieldsDifferent(item.customFields, customFields)) {
+              found = true;
               return { ...item, donationAmount: amount };
             }
             return item;
-          }),
-          lastModified: Date.now(),
-        }));
+          });
+          return { items: updatedItems, lastModified: Date.now() };
+        });
       },
 
       updateSubscriptionType: (productId: number, type: 'onetime' | 'recurring', customFields?: Record<string, any>) => {
@@ -273,6 +282,11 @@ export const useCart = create<CartStore>()(
       getTotal: () => {
         const state = get();
         return state.items.reduce((total, item) => {
+          // For donation products, use donation amount as the item price (not multiplied by quantity)
+          if ('donation' in item.product && item.product.donation && item.donationAmount !== undefined) {
+            return total + item.donationAmount;
+          }
+
           let itemPrice = item.product.price;
           
           // Add custom field prices
@@ -294,9 +308,7 @@ export const useCart = create<CartStore>()(
             });
           }
           
-          const totalItemPrice = itemPrice * item.quantity;
-          const donation = item.donationAmount || 0;
-          return total + totalItemPrice + donation;
+          return total + (itemPrice * item.quantity);
         }, 0);
       },
 

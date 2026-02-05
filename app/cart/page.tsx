@@ -17,6 +17,7 @@ export default function CartPage() {
   const [handleCustomerIdentification, setHandleCustomerIdentification] = useState(false);
   const [flagsLoaded, setFlagsLoaded] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [precheckoutError, setPrecheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     cart.clearIfExpired();
@@ -50,6 +51,7 @@ export default function CartPage() {
     }
 
     // Precheckout flow (direct API call)
+    setPrecheckoutError(null);
     setIsCheckingOut(true);
 
     const precheckoutData = {
@@ -89,6 +91,23 @@ export default function CartPage() {
       });
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        let message = 'Failed to start checkout. Please try again.';
+        try {
+          const parsed = errorText ? JSON.parse(errorText) : null;
+          if (parsed?.error) {
+            message = parsed.error;
+          } else if (parsed?.details) {
+            message = parsed.details;
+          } else if (parsed?.message) {
+            message = parsed.message;
+          }
+        } catch {
+          if (errorText) {
+            message = errorText.slice(0, 200);
+          }
+        }
+        setPrecheckoutError(message);
         setIsCheckingOut(false);
         return;
       }
@@ -101,6 +120,7 @@ export default function CartPage() {
       }
     } catch (error) {
       console.error('Checkout error:', error);
+      setPrecheckoutError('Failed to start checkout. Please try again.');
       setIsCheckingOut(false);
     }
   };
@@ -136,6 +156,12 @@ export default function CartPage() {
             <h1 className="text-4xl font-bold mb-2">Shopping Cart</h1>
             <p className="text-muted">{cart.getItemCount()} item{cart.getItemCount() !== 1 ? 's' : ''} in your cart</p>
           </div>
+
+          {precheckoutError && (
+            <div className="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-400">
+              {precheckoutError}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Cart Items */}
@@ -186,6 +212,11 @@ export default function CartPage() {
                     </Link>
                     <p className="text-2xl font-bold text-primary mb-2">
                       ${(() => {
+                        // For donation products, use donation amount as the price
+                        if ('donation' in item.product && item.product.donation && item.donationAmount !== undefined) {
+                          return item.donationAmount.toFixed(2);
+                        }
+
                         let price = item.product.price;
                         
                         // Add custom field prices
@@ -226,7 +257,7 @@ export default function CartPage() {
                   {/* Quantity & Remove */}
                   <div className="flex flex-col items-end justify-between">
                     <button
-                      onClick={() => cart.removeItem(item.product.id, item.customFields)}
+                      onClick={() => cart.removeItemByIndex(index)}
                       className="p-2 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors cursor-pointer"
                       aria-label="Remove from cart"
                     >
@@ -281,6 +312,11 @@ export default function CartPage() {
                         </span>
                         <span className="font-semibold whitespace-nowrap">
                           ${(() => {
+                            // For donation products, display the donation amount
+                            if ('donation' in item.product && item.product.donation && item.donationAmount !== undefined) {
+                              return item.donationAmount.toFixed(2);
+                            }
+
                             let price = item.product.price;
                             
                             // Add custom field prices

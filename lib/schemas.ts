@@ -188,6 +188,8 @@ export const ProductDetailedSchema = ProductGeneralSchema.extend({
   custom_fields: z.array(CustomFieldSchema).optional(),
   last_edited: z.number().optional(),
   renewal_start: z.string().optional(),
+  donation: z.coerce.boolean().optional(),
+  min_donation: z.coerce.number().optional(),
 });
 
 export type ProductDetailed = z.infer<typeof ProductDetailedSchema>;
@@ -236,6 +238,23 @@ export const CheckoutIdentifiersResponseSchema = z.object({
 });
 
 export type CheckoutIdentifiersResponse = z.infer<typeof CheckoutIdentifiersResponseSchema>;
+
+// Precheckout Request (for anonymous users)
+export const PrecheckoutRequestSchema = z.object({
+  products: z.array(z.object({
+    product_id: z.number(),
+    type: z.string(),
+    quantity: z.number(),
+    custom_fields: z.record(z.string(), z.any()).optional(),
+    server_selection: z.number().optional(),
+    donation_amount: z.number().optional(),
+  })),
+  redirect_success_checkout: z.string(),
+  redirect_canceled_checkout: z.string(),
+  redirect_pending_checkout: z.string(),
+});
+
+export type PrecheckoutRequest = z.infer<typeof PrecheckoutRequestSchema>;
 
 // Checkout Response
 export const CheckoutResponseSchema = z.object({

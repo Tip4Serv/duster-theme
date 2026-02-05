@@ -22,6 +22,7 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
   const [error, setError] = useState<string | null>(null);
   const [subscriptionType, setSubscriptionType] = useState<'onetime' | 'recurring'>('recurring');
   const [serverSelection, setServerSelection] = useState<number | undefined>(undefined);
+  const [donationAmount, setDonationAmount] = useState<number | undefined>(undefined);
 
   // Determine if we should show subscription type choice
   const isSubscription = product.subscription;
@@ -42,7 +43,19 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
     }
   }, [product, serverSelection]);
 
+  // Initialize donation amount to minimum donation
+  useEffect(() => {
+    if (product.donation && product.min_donation && !donationAmount) {
+      setDonationAmount(product.min_donation);
+    }
+  }, [product, donationAmount]);
+
   const calculateTotalPrice = () => {
+    // For donation products, the donation amount is the total price
+    if (product.donation && donationAmount) {
+      return donationAmount;
+    }
+
     let total = product.price;
     
     if (product.custom_fields) {
@@ -112,13 +125,22 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
       setTimeout(() => setError(null), 5000);
       return;
     }
+
+    if (product.donation && (!donationAmount || donationAmount < (product.min_donation || 0))) {
+      setError(`Donation must be at least $${product.min_donation || 0}`);
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
     
     setError(null);
     // Only pass subscriptionType if this is actually a subscription product
     const typeToPass = product.subscription ? subscriptionType : undefined;
     cart.addItem(product, quantity, customFields, typeToPass);
     if (serverSelection) {
-      cart.updateServerSelection(product.id, serverSelection);
+      cart.updateServerSelection(product.id, serverSelection, customFields);
+    }
+    if (donationAmount && donationAmount > 0) {
+      cart.updateDonationAmount(product.id, donationAmount, customFields);
     }
     onClose();
     
@@ -126,6 +148,7 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
     setQuantity(1);
     setCustomFields({});
     setSubscriptionType('recurring');
+    setDonationAmount(undefined);
   };
 
   if (!isOpen) return null;
@@ -203,6 +226,24 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Donation Input */}
+                {product.donation && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Donation Amount {product.min_donation && `(Minimum: $${product.min_donation})`}
+                    </label>
+                    <input
+                      type="number"
+                      min={product.min_donation || 0}
+                      step="0.01"
+                      value={donationAmount ?? ''}
+                      onChange={(e) => setDonationAmount(e.target.value ? Number(e.target.value) : undefined)}
+                      placeholder={`Enter donation amount${product.min_donation ? ` (minimum $${product.min_donation})` : ''}`}
+                      className="w-full px-4 py-3 rounded-lg bg-background border border-border focus:border-primary outline-none transition-colors"
+                    />
+                  </div>
+                )}
+
                 {/* Server Selection */}
                 {product.server_choice && product.server_options && product.server_options.length > 0 && (
                   <div className="space-y-2">

@@ -20,6 +20,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const [added, setAdded] = useState(false);
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [serverSelection, setServerSelection] = useState<number | undefined>(undefined);
+  const [donationAmount, setDonationAmount] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionType, setSubscriptionType] = useState<'onetime' | 'recurring'>('recurring');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -39,6 +40,13 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       setServerSelection(product.server_options[0].id);
     }
   }, [product, serverSelection]);
+
+  // Initialize donation amount to minimum donation
+  useEffect(() => {
+    if (product?.donation && product?.min_donation && !donationAmount) {
+      setDonationAmount(product.min_donation);
+    }
+  }, [product, donationAmount]);
 
   // Determine if we should show subscription type choice
   const canChooseOnetimeSubscription = product?.subscription && product?.onetime_sub === true;
@@ -149,8 +157,8 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       return;
     }
 
-    if (product.server_choice && product.server_options?.length && !serverSelection) {
-      setError('Please select a server');
+    if (product?.donation && (!donationAmount || donationAmount < (product?.min_donation || 0))) {
+      setError(`Donation must be at least $${product?.min_donation || 0}`);
       setTimeout(() => setError(null), 5000);
       return;
     }
@@ -160,10 +168,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     const typeToPass = product.subscription ? subscriptionType : undefined;
     cart.addItem(product, quantity, customFields, typeToPass);
     if (serverSelection) {
-      cart.updateServerSelection(product.id, serverSelection);
+      cart.updateServerSelection(product.id, serverSelection, customFields);
     }
-    if (serverSelection) {
-      cart.updateServerSelection(product.id, serverSelection);
+    if (donationAmount && donationAmount > 0) {
+      cart.updateDonationAmount(product.id, donationAmount, customFields);
     }
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -216,6 +224,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     // Only pass subscriptionType if this is actually a subscription product
     const typeToPass = product.subscription ? subscriptionType : undefined;
     cart.addItem(product, quantity, customFields, typeToPass);
+    if (serverSelection) {
+      cart.updateServerSelection(product.id, serverSelection, customFields);
+    }
     
     // Immediately redirect to cart
     router.push('/cart');
@@ -230,6 +241,11 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   };
 
   const calculateTotalPrice = () => {
+    // For donation products, the donation amount is the total price
+    if (product?.donation && donationAmount) {
+      return donationAmount;
+    }
+
     let total = product?.price || 0;
     
     if (product?.custom_fields) {
@@ -409,7 +425,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                 <span className="text-5xl font-bold text-primary">
                   {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
                 </span>
-                {product.subscription && product.period_num > 0 && product.duration_periodicity ? (
+                {product.subscription && product.period_num && product.period_num > 0 && product.duration_periodicity ? (
                   <span className="text-lg text-muted">
                     / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
                     {product.period_num > 1 ? 's' : ''}
@@ -449,6 +465,24 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                   <div 
                     className="text-white leading-relaxed prose prose-invert max-w-none"
                     dangerouslySetInnerHTML={{ __html: product.description }}
+                  />
+                </div>
+              )}
+
+              {/* Donation Input */}
+              {product?.donation && (
+                <div className="mb-6 space-y-2">
+                  <h2 className="text-lg font-semibold">
+                    Donation Amount {product?.min_donation && `(Minimum: $${product.min_donation})`}
+                  </h2>
+                  <input
+                    type="number"
+                    min={product?.min_donation || 0}
+                    step="0.01"
+                    value={donationAmount ?? ''}
+                    onChange={(e) => setDonationAmount(e.target.value ? Number(e.target.value) : undefined)}
+                    placeholder={`Enter donation amount${product?.min_donation ? ` (minimum $${product.min_donation})` : ''}`}
+                    className="w-full px-4 py-3 rounded-lg bg-card border border-border focus:border-primary outline-none transition-colors"
                   />
                 </div>
               )}
