@@ -104,7 +104,7 @@ export function formatCustomFieldsForDisplay(
           }
         }
       }
-    } else if (field.type === 'number' || field.type === 'range' || field.type === 'text') {
+    } else if (field.type === 'number' || field.type === 'range' || field.type === 'text' || field.type === 'textarea') {
       parts.push(`${fieldName}: ${value}`);
     }
   });

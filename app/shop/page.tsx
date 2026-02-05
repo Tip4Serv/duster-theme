@@ -68,7 +68,7 @@ export default function ShopPage() {
               src={category.image}
               alt={`${category.name} cover`}
               fill
-              sizes="40px"
+              sizes="120px"
               className="object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (

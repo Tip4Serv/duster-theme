@@ -33,16 +33,16 @@ export function Footer({ initialStore }: FooterProps) {
           </div>
 
           {/* Quick Links */}
-          <div className="md:ml-auto md:text-right">
+          <div className="md:ml-auto">
             <h3 className="text-sm font-semibold mb-3">Quick Links</h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-              <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">
+            <div className="grid grid-cols-2 gap-x-12 gap-y-2">
+              <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors text-left">
                 Home
               </Link>
-              <Link href="/shop" className="text-sm text-muted hover:text-foreground transition-colors">
+              <Link href="/shop" className="text-sm text-muted hover:text-foreground transition-colors text-left">
                 Shop
               </Link>
-              <Link href="/cart" className="text-sm text-muted hover:text-foreground transition-colors">
+              <Link href="/cart" className="text-sm text-muted hover:text-foreground transition-colors text-left">
                 Cart
               </Link>
               {store?.menu_links?.map((menuLink, index) => (
@@ -51,7 +51,7 @@ export function Footer({ initialStore }: FooterProps) {
                   href={menuLink.link.trim()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-muted hover:text-foreground transition-colors"
+                  className="text-sm text-muted hover:text-foreground transition-colors text-left"
                 >
                   {menuLink.title}
                 </a>

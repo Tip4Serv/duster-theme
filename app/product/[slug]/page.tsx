@@ -576,6 +576,18 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                             />
                           )}
 
+                          {/* Textarea Input */}
+                          {field.type === 'textarea' && (
+                            <input
+                              type="text"
+                              value={customFields[key] || ''}
+                              onChange={(e) => handleCustomFieldChange(field, e.target.value)}
+                              placeholder={field.default_value?.toString() || ''}
+                              required={field.required}
+                              className="w-full px-4 py-3 rounded-lg bg-card border border-border focus:border-primary outline-none transition-colors"
+                            />
+                          )}
+
                           {/* Number/Range Input */}
                           {(field.type === 'number' || field.type === 'range') && (
                             <div className="space-y-2">
@@ -646,6 +658,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                           {/* Debug: Unknown field type */}
                           {field.type !== 'checkbox' && 
                            field.type !== 'text' && 
+                           field.type !== 'textarea' && 
                            field.type !== 'number' && 
                            field.type !== 'range' && 
                            field.type !== 'select' && 
