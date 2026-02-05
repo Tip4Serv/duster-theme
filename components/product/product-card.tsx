@@ -132,18 +132,36 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-primary">
                     {product.price > 0 ? `$${product.price.toFixed(2)}` : 'Free'}
-                    {product.subscription && product.period_num && product.duration_periodicity && (
-                      <span className="text-sm text-muted ml-1">
-                        / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
-                        {product.period_num > 1 ? 's' : ''}
-                      </span>
-                    )}
                   </span>
-                  {product.old_price && product.old_price > 0 && product.old_price > product.price ? (
-                    <span className="text-sm text-muted line-through">
-                      ${product.old_price.toFixed(2)}
-                    </span>
-                  ) : null}
+                  {/* For subscriptions with non-recurring discount, show "then original price / period" */}
+                  {product.subscription && product.recurring_discount === false && product.old_price && product.old_price > product.price ? (
+                    <>
+                      <span className="text-sm text-muted">then</span>
+                      <span className="text-sm text-muted">
+                        ${product.old_price.toFixed(2)}
+                      </span>
+                      {product.period_num && product.duration_periodicity && (
+                        <span className="text-sm text-muted">
+                          / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
+                          {product.period_num > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {product.subscription && product.period_num && product.duration_periodicity && (
+                        <span className="text-sm text-muted">
+                          / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
+                          {product.period_num > 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {product.old_price && product.old_price > 0 && product.old_price > product.price ? (
+                        <span className="text-sm text-muted line-through">
+                          ${product.old_price.toFixed(2)}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                 </div>
 
                 <motion.button

@@ -48,6 +48,13 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     }
   }, [product, donationAmount]);
 
+  // Redirect to shop if product is inactive
+  useEffect(() => {
+    if (product && product.status === false) {
+      router.replace('/shop');
+    }
+  }, [product, router]);
+
   // Determine if we should show subscription type choice
   const canChooseOnetimeSubscription = product?.subscription && product?.onetime_sub === true;
 
@@ -300,6 +307,19 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     );
   }
 
+  // Don't render if product is inactive (redirect is happening)
+  if (product.status === false) {
+    return (
+      <div className="min-h-screen py-12">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="h-96 rounded-xl bg-card border border-border animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4">
@@ -425,17 +445,37 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                 <span className="text-5xl font-bold text-primary">
                   {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
                 </span>
-                {product.subscription && product.period_num && product.period_num > 0 && product.duration_periodicity ? (
-                  <span className="text-lg text-muted">
-                    / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
-                    {product.period_num > 1 ? 's' : ''}
-                  </span>
-                ) : null}
-                {product.old_price && product.old_price > product.price && product.price > 0 ? (
-                  <span className="text-2xl text-muted line-through">
-                    ${(product.old_price * quantity).toFixed(2)}
-                  </span>
-                ) : null}
+                {/* For subscriptions with non-recurring discount, show "then original price / period" */}
+                {product.subscription && product.recurring_discount === false && product.old_price && product.old_price > product.price ? (
+                  <>
+                    <span className="text-lg text-muted">then</span>
+                    <span className="text-2xl text-muted">
+                      ${(product.old_price * quantity).toFixed(2)}
+                    </span>
+                    {product.period_num && product.period_num > 0 && product.duration_periodicity ? (
+                      <span className="text-lg text-muted">
+                        / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
+                        {product.period_num > 1 ? 's' : ''}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    {/* Normal subscription period display */}
+                    {product.subscription && product.period_num && product.period_num > 0 && product.duration_periodicity ? (
+                      <span className="text-lg text-muted">
+                        / {product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
+                        {product.period_num > 1 ? 's' : ''}
+                      </span>
+                    ) : null}
+                    {/* Show old price strikethrough for recurring discounts or non-subscriptions */}
+                    {product.old_price && product.old_price > product.price && product.price > 0 ? (
+                      <span className="text-2xl text-muted line-through">
+                        ${(product.old_price * quantity).toFixed(2)}
+                      </span>
+                    ) : null}
+                  </>
+                )}
                 {product.custom_fields && product.custom_fields.length > 0 && product.price > 0 ? (
                   <span className="text-sm text-muted">
                     (Base: ${(product.price * quantity).toFixed(2)})

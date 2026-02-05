@@ -68,13 +68,8 @@ export async function getStoreWhoami(): Promise<Store | null> {
       return cached;
     }
 
-    // Fetch from local API route
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/tip4serv/store/whoami`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    // Fetch directly from Tip4Serv API (server-side)
+    const response = await fetchFromTip4Serv('/store/whoami');
 
     if (!response.ok) {
       console.error('Failed to fetch store whoami:', response.statusText);
