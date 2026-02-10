@@ -326,13 +326,6 @@ function CheckoutContent() {
             {/* Checkout Form */}
             <div className="lg:col-span-2">
               <form onSubmit={handleSubmit} className="space-y-6">
-                {checkoutError && (
-                  <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-200">
-                    <p className="font-semibold">Checkout Error</p>
-                    <p className="text-sm mt-1">{checkoutError}</p>
-                  </div>
-                )}
-                
                 {/* Required User Information */}
                 <div className="p-6 rounded-xl bg-card border border-border">
                   <h2 className="text-xl font-semibold mb-4">Your Information</h2>

@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShoppingCart, Zap, Check } from 'lucide-react';
+import { ShoppingCart, Zap, Check, ArrowRight } from 'lucide-react';
 import type { ProductGeneral } from '@/lib/schemas';
 import { useCart } from '@/hooks/use-cart';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useProduct } from '@/hooks/use-api';
 import { CustomFieldsModal } from './custom-fields-modal';
+import { useRouter } from 'next/navigation';
 
 type ProductCardProps = {
   product: ProductGeneral;
@@ -17,10 +18,13 @@ type ProductCardProps = {
 
 export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardProps) {
   const cart = useCart();
+  const router = useRouter();
   const [added, setAdded] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [needsCustomFields, setNeedsCustomFields] = useState(false);
   const { data: detailedProduct } = useProduct(product.slug);
+  
+  const isOutOfStock = typeof product.stock === 'number' && product.stock === 0;
 
   useEffect(() => {
     // Check if product has custom fields, is a subscription that allows onetime purchase, is a donation product, or requires server selection
@@ -45,7 +49,7 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
       return;
     }
 
-    // For subscriptions without custom fields, default to recurring
+    // For subscriptions without custom fields, default to recurring and go to cart
     const subscriptionType = product.subscription ? 'recurring' : undefined;
     // Prevent adding more than stock (if stock is defined)
     const currentInCart = cart.items.find((item) => item.product.id === product.id)?.quantity || 0;
@@ -55,6 +59,13 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
       return;
     }
     cart.addItem(product, 1, {}, subscriptionType);
+    
+    // If it's a subscription without custom fields, redirect directly to cart
+    if (product.subscription && !needsCustomFields) {
+      router.push('/cart');
+      return;
+    }
+    
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   };
@@ -64,19 +75,18 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
     return html.replace(/<[^>]*>/g, '').trim();
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Link href={`/product/${product.slug}`}>
-        <div className="group relative h-full rounded-xl bg-card border border-border hover:border-primary transition-all duration-300 overflow-hidden">
+  const CardContent = (
+    <div className={`group relative h-full rounded-xl bg-card border border-border transition-all duration-300 overflow-hidden ${
+      isOutOfStock 
+        ? 'opacity-60 grayscale cursor-not-allowed' 
+        : 'hover:border-primary'
+    }`}>
           {/* Badges */}
           <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 items-end">
-            {product.subscription && (
+            {/* Non-recurring discount badge - shows period and normal price after first payment */}
+            {product.subscription && product.recurring_discount === false && product.old_price && product.old_price > product.price && product.period_num && product.duration_periodicity && (
               <span className="px-3 py-1.5 text-xs font-semibold rounded-full border border-primary/70 text-primary bg-background/60">
-                Subscription
+                {product.period_num} {product.duration_periodicity}{product.period_num > 1 ? 's' : ''} at ${product.old_price.toFixed(2)}
               </span>
             )}
             {product.featured && !hideFeaturedBadge && (
@@ -103,7 +113,9 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
                 src={product.image}
                 alt={product.name}
                 fill
-                className="object-contain group-hover:scale-105 transition-transform duration-300"
+                className={`object-contain transition-transform duration-300 ${
+                  isOutOfStock ? '' : 'group-hover:scale-105'
+                }`}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -114,7 +126,9 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
 
           {/* Content */}
           <div className="p-4 flex flex-col gap-3 h-full">
-            <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
+            <h3 className={`font-semibold text-lg line-clamp-1 transition-colors ${
+              isOutOfStock ? '' : 'group-hover:text-primary'
+            }`}>
               {product.name}
             </h3>
             
@@ -169,19 +183,43 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
                   whileTap={{ scale: 0.9 }}
                   animate={added ? { scale: [1, 1.2, 1] } : {}}
                   transition={{ duration: 0.3 }}
-                  className={`p-2 rounded-lg text-background transition-all glow-primary cursor-pointer ${
-                    added ? 'bg-green-500' : 'bg-primary hover:bg-primary/90'
+                  className={`p-2 rounded-lg text-background transition-all cursor-pointer ${
+                    isOutOfStock 
+                      ? 'bg-muted/50 cursor-not-allowed' 
+                      : added 
+                        ? 'bg-green-500 glow-primary' 
+                        : 'bg-primary hover:bg-primary/90 glow-primary'
                   }`}
-                  aria-label="Add to cart"
-                  disabled={typeof product.stock === 'number' && product.stock === 0}
+                  aria-label={product.subscription && !needsCustomFields ? 'Subscribe' : 'Add to cart'}
+                  disabled={isOutOfStock}
                 >
-                  {added ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
+                  {added ? (
+                    <Check className="w-5 h-5" />
+                  ) : product.subscription && !needsCustomFields ? (
+                    <ArrowRight className="w-5 h-5" />
+                  ) : (
+                    <ShoppingCart className="w-5 h-5" />
+                  )}
                 </motion.button>
               </div>
             </div>
           </div>
         </div>
-      </Link>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {isOutOfStock ? (
+        CardContent
+      ) : (
+        <Link href={`/product/${product.slug}`}>
+          {CardContent}
+        </Link>
+      )}
 
       {/* Custom Fields Modal */}
       {needsCustomFields && detailedProduct && (

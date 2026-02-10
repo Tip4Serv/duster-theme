@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ShoppingCart, AlertCircle, HelpCircle } from 'lucide-react';
+import { X, ShoppingCart, AlertCircle, HelpCircle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ProductDetailed, CustomField } from '@/lib/schemas';
 import { useCart } from '@/hooks/use-cart';
 import { validateCustomRules, getCustomRulesErrorMessage } from '@/lib/custom-rules-utils';
 import { calculateNumberRangeCharge } from '@/lib/cart-utils';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 type CustomFieldsModalProps = {
   product: ProductDetailed;
@@ -17,6 +18,7 @@ type CustomFieldsModalProps = {
 
 export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModalProps) {
   const cart = useCart();
+  const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,32 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
     }
 
     let total = product.price;
+    
+    if (product.custom_fields) {
+      product.custom_fields.forEach((field) => {
+        const key = field.id.toString();
+        const value = customFields[key];
+        
+        if (field.type === 'checkbox' && value) {
+          total += field.price || 0;
+        } else if ((field.type === 'select' || field.type === 'selection' || field.type === 'dropdown' || field.type === 'choice') && value && field.options) {
+          const selectedOption = field.options.find((opt) => opt.id.toString() === value.toString());
+          if (selectedOption) {
+            total += selectedOption.price || 0;
+          }
+        } else if (field.type === 'number' || field.type === 'range') {
+          total += calculateNumberRangeCharge(field, value);
+        }
+      });
+    }
+    
+    return total * quantity;
+  };
+
+  // Calculate the "then" price for subscriptions with non-recurring discount
+  // This is old_price + custom field options
+  const calculateThenPrice = () => {
+    let total = product.old_price || product.price;
     
     if (product.custom_fields) {
       product.custom_fields.forEach((field) => {
@@ -144,6 +172,11 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
     }
     onClose();
     
+    // If subscribing (recurring), redirect directly to cart
+    if (product.subscription && subscriptionType === 'recurring') {
+      router.push('/cart');
+    }
+    
     // Reset form
     setQuantity(1);
     setCustomFields({});
@@ -204,15 +237,38 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
                 </div>
                 <div className="flex-1 min-w-0">
                   <h2 className="text-2xl font-bold mb-2">{product.name}</h2>
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline gap-2 flex-wrap">
                     <p className="text-3xl font-bold text-primary">
                       {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
                     </p>
-                    {product.subscription && product.period_num && product.duration_periodicity && (
-                      <span className="text-sm text-muted">
-                          / {product.period_num > 1 && product.period_num} {product.duration_periodicity}
-                        {product.period_num > 1 ? 's' : ''}
-                      </span>
+                    {/* For subscriptions with non-recurring discount, show "then original price / period" */}
+                    {product.subscription && product.recurring_discount === false && product.old_price && product.old_price > product.price ? (
+                      <>
+                        <span className="text-sm text-muted">then</span>
+                        <span className="text-lg text-muted">
+                          ${calculateThenPrice().toFixed(2)}
+                        </span>
+                        {product.period_num && product.duration_periodicity && (
+                          <span className="text-sm text-muted">
+                            / {product.period_num > 1 && product.period_num} {product.duration_periodicity}
+                            {product.period_num > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {product.subscription && product.period_num && product.duration_periodicity && (
+                          <span className="text-sm text-muted">
+                            / {product.period_num > 1 && product.period_num} {product.duration_periodicity}
+                            {product.period_num > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {product.old_price && product.old_price > product.price && product.price > 0 && (
+                          <span className="text-lg text-muted line-through">
+                            ${(product.old_price * quantity).toFixed(2)}
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -538,13 +594,17 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
                   </div>
                 )}
 
-                {/* Add to Cart Button */}
+                {/* Add to Cart / Subscribe Button */}
                 <button
                   onClick={handleAddToCart}
                   className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <ShoppingCart className="w-5 h-5" />
-                  {product.subscription && subscriptionType === 'recurring' ? 'Subscribe' : 'Add to Cart'} - {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
+                  {product.subscription && subscriptionType === 'recurring' ? (
+                    <ArrowRight className="w-5 h-5" />
+                  ) : (
+                    <ShoppingCart className="w-5 h-5" />
+                  )}
+                  {product.subscription && subscriptionType === 'recurring' ? 'Subscribe Now' : 'Add to Cart'} - {calculateTotalPrice() > 0 ? `$${calculateTotalPrice().toFixed(2)}` : 'Free'}
                   {product.subscription && subscriptionType === 'recurring' && product.period_num && product.duration_periodicity && (
                     <span>/ {product.period_num > 1 && product.period_num} {product.duration_periodicity}{product.period_num > 1 ? 's' : ''}</span>
                   )}

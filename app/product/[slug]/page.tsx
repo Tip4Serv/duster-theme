@@ -6,7 +6,7 @@ import { ShoppingCart, ArrowLeft, Check, X, AlertCircle, ChevronLeft, ChevronRig
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, use, useEffect } from 'react';
+import { useState, use, useEffect, useRef } from 'react';
 import type { CustomField } from '@/lib/schemas';
 import { validateCustomRules, getCustomRulesErrorMessage } from '@/lib/custom-rules-utils';
 import { calculateNumberRangeCharge } from '@/lib/cart-utils';
@@ -30,6 +30,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [shouldTransition, setShouldTransition] = useState(true);
+  const youtubeIframeRef = useRef<HTMLIFrameElement>(null);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [hasOpenedVideo, setHasOpenedVideo] = useState(false);
 
   useEffect(() => {
     cart.clearIfExpired();
@@ -64,12 +67,96 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     ...(product.gallery || [])
   ].filter(Boolean) : [];
 
+  // Get all media items (images + YouTube video)
+  type MediaItem = { type: 'image'; url: string } | { type: 'youtube'; url: string; videoId: string };
+  
+  const getYouTubeVideoId = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/,
+      /youtube\.com\/v\/([^&?/]+)/,
+    ];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  };
+
+  const allMedia: MediaItem[] = product ? [
+    ...allImages.map(url => ({ type: 'image' as const, url })),
+    ...(product.youtube && getYouTubeVideoId(product.youtube) 
+      ? [{ type: 'youtube' as const, url: product.youtube, videoId: getYouTubeVideoId(product.youtube)! }] 
+      : []
+    )
+  ] : [];
+
+  // Pause YouTube video when exiting fullscreen
+  const pauseYouTubeVideo = () => {
+    if (youtubeIframeRef.current) {
+      youtubeIframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: 'command', func: 'pauseVideo' }),
+        '*'
+      );
+    }
+  };
+
+  // Play YouTube video
+  const playYouTubeVideo = () => {
+    if (youtubeIframeRef.current) {
+      youtubeIframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: 'command', func: 'playVideo' }),
+        '*'
+      );
+    }
+  };
+
+  // Handle closing fullscreen - pause video if playing
+  const handleCloseFullscreen = () => {
+    pauseYouTubeVideo();
+    setIsFullscreen(false);
+  };
+
+  // Open fullscreen at specific index (for video play button)
+  const openFullscreenAtIndex = (index: number) => {
+    setSelectedImageIndex(index);
+    setIsFullscreen(true);
+    // Auto-play video if it's a YouTube item
+    if (allMedia[index]?.type === 'youtube') {
+      setIsVideoPlaying(true);
+      if (hasOpenedVideo) {
+        // If already opened before, just play it
+        setTimeout(() => playYouTubeVideo(), 100);
+      }
+      setHasOpenedVideo(true);
+    }
+  };
+
   const handlePreviousImage = () => {
-    setSelectedImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+    pauseYouTubeVideo();
+    const newIndex = selectedImageIndex === 0 ? allMedia.length - 1 : selectedImageIndex - 1;
+    setSelectedImageIndex(newIndex);
+    // If navigating to video, make sure iframe is mounted and play it
+    if (allMedia[newIndex]?.type === 'youtube') {
+      if (!hasOpenedVideo) {
+        setHasOpenedVideo(true);
+      } else {
+        setTimeout(() => playYouTubeVideo(), 100);
+      }
+    }
   };
 
   const handleNextImage = () => {
-    setSelectedImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+    pauseYouTubeVideo();
+    const newIndex = selectedImageIndex === allMedia.length - 1 ? 0 : selectedImageIndex + 1;
+    setSelectedImageIndex(newIndex);
+    // If navigating to video, make sure iframe is mounted and play it
+    if (allMedia[newIndex]?.type === 'youtube') {
+      if (!hasOpenedVideo) {
+        setHasOpenedVideo(true);
+      } else {
+        setTimeout(() => playYouTubeVideo(), 100);
+      }
+    }
   };
 
   // Minimum swipe distance (in px)
@@ -105,10 +192,28 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     
     if (isLeftSwipe) {
       // Move to next image
-      setSelectedImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+      pauseYouTubeVideo();
+      const newIndex = selectedImageIndex === allMedia.length - 1 ? 0 : selectedImageIndex + 1;
+      setSelectedImageIndex(newIndex);
+      if (allMedia[newIndex]?.type === 'youtube') {
+        if (!hasOpenedVideo) {
+          setHasOpenedVideo(true);
+        } else {
+          setTimeout(() => playYouTubeVideo(), 100);
+        }
+      }
     } else if (isRightSwipe) {
       // Move to previous image
-      setSelectedImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+      pauseYouTubeVideo();
+      const newIndex = selectedImageIndex === 0 ? allMedia.length - 1 : selectedImageIndex - 1;
+      setSelectedImageIndex(newIndex);
+      if (allMedia[newIndex]?.type === 'youtube') {
+        if (!hasOpenedVideo) {
+          setHasOpenedVideo(true);
+        } else {
+          setTimeout(() => playYouTubeVideo(), 100);
+        }
+      }
     }
     
     // Reset drag offset to snap to the selected image
@@ -276,6 +381,31 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     return total * quantity;
   };
 
+  // Calculate the "then" price for subscriptions with non-recurring discount
+  const calculateThenPrice = () => {
+    let total = product?.old_price || product?.price || 0;
+    
+    if (product?.custom_fields) {
+      product.custom_fields.forEach((field) => {
+        const key = field.id.toString();
+        const value = customFields[key];
+        
+        if (field.type === 'checkbox' && value) {
+          total += field.price || 0;
+        } else if ((field.type === 'select' || field.type === 'selection' || field.type === 'dropdown' || field.type === 'choice') && value && field.options) {
+          const selectedOption = field.options.find((opt) => opt.id.toString() === value.toString());
+          if (selectedOption) {
+            total += selectedOption.price || 0;
+          }
+        } else if (field.type === 'number' || field.type === 'range') {
+          total += calculateNumberRangeCharge(field, value);
+        }
+      });
+    }
+    
+    return total * quantity;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen py-12">
@@ -335,23 +465,48 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
             <div className="space-y-4">
               {/* Main Image */}
               <div className="relative aspect-square rounded-2xl overflow-hidden bg-gradient-card border border-border group">
-                {allImages.length > 0 ? (
+                {allMedia.length > 0 ? (
                   <>
-                    <div 
-                      className="relative w-full h-full cursor-pointer"
-                      onClick={() => setIsFullscreen(true)}
-                    >
-                      <Image
-                        src={allImages[selectedImageIndex]}
-                        alt={product.name}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
+                    {allMedia[selectedImageIndex]?.type === 'image' ? (
+                      <div 
+                        className="relative w-full h-full cursor-pointer"
+                        onClick={() => setIsFullscreen(true)}
+                      >
+                        <Image
+                          src={allMedia[selectedImageIndex].url}
+                          alt={product.name}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                        />
+                      </div>
+                    ) : allMedia[selectedImageIndex]?.type === 'youtube' ? (
+                      <div 
+                        className="relative w-full h-full cursor-pointer"
+                        onClick={() => openFullscreenAtIndex(selectedImageIndex)}
+                      >
+                        {/* YouTube Thumbnail */}
+                        <Image
+                          src={`https://img.youtube.com/vi/${allMedia[selectedImageIndex].videoId}/hqdefault.jpg`}
+                          alt={`${product.name} Video`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                        {/* YouTube Play Button Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          {/* White background behind the play triangle */}
+                          <div className="absolute w-[68px] h-[48px] bg-white rounded-xl" />
+                          {/* YouTube logo icon */}
+                          <svg className="relative w-32 h-32 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FF0000"/>
+                          </svg>
+                        </div>
+                      </div>
+                    ) : null}
 
                     {/* Navigation Arrows - Hidden on mobile */}
-                    {allImages.length > 1 && (
+                    {allMedia.length > 1 && (
                       <>
                         <button
                           onClick={(e) => {
@@ -378,7 +533,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
                     {/* Fullscreen Button */}
                     <button
-                      onClick={() => setIsFullscreen(true)}
+                      onClick={() => openFullscreenAtIndex(selectedImageIndex)}
                       className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
                       aria-label="Fullscreen"
                     >
@@ -393,9 +548,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
                 {/* Badges */}
                 <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
-                  {product.subscription && (
+                  {/* Non-recurring discount badge - shows period and normal price after first payment */}
+                  {product.subscription && product.recurring_discount === false && product.old_price && product.old_price > product.price && product.period_num && product.duration_periodicity && (
                     <span className="px-3 py-1.5 text-xs font-semibold rounded-full border border-primary/70 text-primary bg-background/60">
-                      Subscription
+                      {product.period_num} {product.duration_periodicity}{product.period_num > 1 ? 's' : ''} at ${product.old_price.toFixed(2)}
                     </span>
                   )}
                   {product.percent_off && product.percent_off > 0 && product.price > 0 && (
@@ -412,25 +568,47 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
               </div>
 
               {/* Thumbnail Gallery */}
-              {allImages.length > 1 && (
+              {allMedia.length > 1 && (
                 <div className="grid grid-cols-5 gap-2">
-                  {allImages.map((image, index) => (
+                  {allMedia.map((media, index) => (
                     <button
                       key={index}
-                      onClick={() => setSelectedImageIndex(index)}
+                      onClick={() => {
+                        pauseYouTubeVideo();
+                        setSelectedImageIndex(index);
+                      }}
                       className={`relative aspect-square rounded-lg overflow-hidden bg-gradient-card border-2 transition-all cursor-pointer ${
                         selectedImageIndex === index
                           ? 'border-primary'
                           : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      <Image
-                        src={image}
-                        alt={`${product.name} ${index + 1}`}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
+                      {media.type === 'image' ? (
+                        <Image
+                          src={media.url}
+                          alt={`${product.name} ${index + 1}`}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                        />
+                      ) : (
+                        <>
+                          <Image
+                            src={`https://img.youtube.com/vi/${media.videoId}/mqdefault.jpg`}
+                            alt={`${product.name} Video`}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                          {/* YouTube play icon */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="absolute w-[17px] h-[12px] bg-white rounded-[3px]" />
+                            <svg className="relative w-10 h-10 drop-shadow" viewBox="0 0 24 24" fill="none">
+                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FF0000"/>
+                            </svg>
+                          </div>
+                        </>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -450,7 +628,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                   <>
                     <span className="text-lg text-muted">then</span>
                     <span className="text-2xl text-muted">
-                      ${(product.old_price * quantity).toFixed(2)}
+                      ${calculateThenPrice().toFixed(2)}
                     </span>
                     {product.period_num && product.period_num > 0 && product.duration_periodicity ? (
                       <span className="text-lg text-muted">
@@ -848,28 +1026,35 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
               {/* Add to Cart & Buy Now Buttons */}
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleAddToCart}
-                  disabled={added || (typeof product.stock === 'number' && product.stock === 0)}
-                  className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {added ? (
-                    <>
-                      <Check className="w-5 h-5" />
-                      Added to Cart
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-5 h-5" />
-                      Add to Cart
-                    </>
-                  )}
-                </button>
+                {/* Hide Add to Cart for subscription-only products or when recurring subscription is selected */}
+                {!(product.subscription && !product.onetime_sub) && !(product.subscription && subscriptionType === 'recurring') && (
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={added || (typeof product.stock === 'number' && product.stock === 0)}
+                    className="w-full px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-background font-semibold text-lg transition-all glow-primary hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {added ? (
+                      <>
+                        <Check className="w-5 h-5" />
+                        Added to Cart
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5" />
+                        Add to Cart
+                      </>
+                    )}
+                  </button>
+                )}
 
                 <button
                   onClick={handleBuyNow}
                   disabled={typeof product.stock === 'number' && product.stock === 0}
-                  className="w-full px-8 py-4 rounded-xl bg-secondary hover:bg-secondary/90 text-background font-semibold text-lg transition-all glow-secondary hover:scale-105 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    (product.subscription && !product.onetime_sub) || (product.subscription && subscriptionType === 'recurring')
+                      ? 'bg-primary hover:bg-primary/90 text-background glow-primary'
+                      : 'bg-secondary hover:bg-secondary/90 text-background glow-secondary'
+                  }`}
                 >
                   <ArrowRight className="w-5 h-5" />
                   {product.subscription && subscriptionType === 'recurring' ? 'Subscribe Now' : 'Buy Now'}
@@ -880,68 +1065,80 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
         </div>
       </div>
 
-      {/* Fullscreen Image Modal */}
-      {isFullscreen && allImages.length > 0 && (
+      {/* Fullscreen Media Modal */}
+      {isFullscreen && allMedia.length > 0 && (
         <div 
           className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center overflow-hidden"
           style={{ touchAction: 'none' }}
-          onClick={() => setIsFullscreen(false)}
+          onClick={handleCloseFullscreen}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
           {/* Close Button */}
           <button
-            onClick={() => setIsFullscreen(false)}
+            onClick={handleCloseFullscreen}
             className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer z-10"
             aria-label="Close fullscreen"
           >
             <X className="w-6 h-6 text-white" />
           </button>
 
-          {/* Image Counter */}
-          {allImages.length > 1 && (
+          {/* Media Counter */}
+          {allMedia.length > 1 && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium">
-              {selectedImageIndex + 1} / {allImages.length}
+              {selectedImageIndex + 1} / {allMedia.length}
             </div>
           )}
 
-          {/* Main Fullscreen Image */}
-          <div 
-            className="relative overflow-hidden pointer-events-none"
-            style={{ width: '60%', height: '60%', WebkitOverflowScrolling: 'touch' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="flex h-full"
-              style={{
-                transform: `translateX(calc(-${selectedImageIndex * 100}% + ${dragOffset}px))`,
-                transition: shouldTransition ? 'transform 0.3s ease-out' : 'none',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-              }}
+          {/* Main Fullscreen Content */}
+          {allMedia[selectedImageIndex]?.type === 'youtube' ? (
+            // YouTube Video Player - just a container, iframe is rendered separately to persist
+            <div 
+              className="relative pointer-events-auto"
+              style={{ width: '80vw', height: '80vh', maxWidth: '1280px', maxHeight: '720px' }}
+              onClick={(e) => e.stopPropagation()}
             >
-              {/* Render all images in a row */}
-              {allImages.map((image, index) => (
-                <div 
-                  key={index} 
-                  className="relative flex-shrink-0" 
-                  style={{ width: '60vw', height: '60vh' }}
-                >
-                  <Image
-                    src={image}
-                    alt={`${product.name} ${index + 1}`}
-                    fill
-                    className="object-contain"
-                    unoptimized
-                  />
-                </div>
-              ))}
+              {/* Iframe is rendered outside this modal to persist */}
             </div>
-          </div>
+          ) : (
+            // Image Carousel
+            <div 
+              className="relative overflow-hidden pointer-events-none"
+              style={{ width: '60%', height: '60%', WebkitOverflowScrolling: 'touch' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="flex h-full"
+                style={{
+                  transform: `translateX(calc(-${selectedImageIndex * 100}% + ${dragOffset}px))`,
+                  transition: shouldTransition ? 'transform 0.3s ease-out' : 'none',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                }}
+              >
+                {/* Render all images in a row */}
+                {allMedia.filter(m => m.type === 'image').map((media, index) => (
+                  <div 
+                    key={index} 
+                    className="relative flex-shrink-0" 
+                    style={{ width: '60vw', height: '60vh' }}
+                  >
+                    <Image
+                      src={media.url}
+                      alt={`${product.name} ${index + 1}`}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Navigation Arrows - Hidden on mobile */}
-          {allImages.length > 1 && (
+          {allMedia.length > 1 && (
             <>
               <button
                 onClick={(e) => {
@@ -967,7 +1164,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
           )}
 
           {/* Thumbnail Navigation */}
-          {allImages.length > 1 && (
+          {allMedia.length > 1 && (
             <div 
               className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-full px-4 overflow-x-auto"
               style={{
@@ -981,12 +1178,21 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                   display: none;
                 }
               `}</style>
-              {allImages.map((image, index) => (
+              {allMedia.map((media, index) => (
                 <button
                   key={index}
                   onClick={(e) => {
                     e.stopPropagation();
+                    pauseYouTubeVideo();
                     setSelectedImageIndex(index);
+                    if (media.type === 'youtube') {
+                      setIsVideoPlaying(true);
+                      if (!hasOpenedVideo) {
+                        setHasOpenedVideo(true);
+                      } else {
+                        setTimeout(() => playYouTubeVideo(), 100);
+                      }
+                    }
                   }}
                   className={`relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                     selectedImageIndex === index
@@ -994,17 +1200,64 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                       : 'border-white/30 hover:border-white/60'
                   }`}
                 >
-                  <Image
-                    src={image}
-                    alt={`Thumbnail ${index + 1}`}
-                    fill
-                    className="object-contain"
-                    unoptimized
-                  />
+                  {media.type === 'image' ? (
+                    <Image
+                      src={media.url}
+                      alt={`Thumbnail ${index + 1}`}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <>
+                      <Image
+                        src={`https://img.youtube.com/vi/${media.videoId}/mqdefault.jpg`}
+                        alt="Video thumbnail"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                      {/* YouTube play icon */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="absolute w-[14px] h-[10px] bg-white rounded-[2px]" />
+                        <svg className="relative w-9 h-9 drop-shadow" viewBox="0 0 24 24" fill="none">
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FF0000"/>
+                        </svg>
+                      </div>
+                    </>
+                  )}
                 </button>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Persistent YouTube Iframe - Always mounted once opened to preserve video state */}
+      {hasOpenedVideo && allMedia.find(m => m.type === 'youtube') && (
+        <div 
+          className={`fixed inset-0 z-[51] flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
+            isFullscreen && allMedia[selectedImageIndex]?.type === 'youtube' 
+              ? 'opacity-100' 
+              : 'opacity-0 pointer-events-none'
+          }`}
+          style={{ 
+            visibility: isFullscreen && allMedia[selectedImageIndex]?.type === 'youtube' ? 'visible' : 'hidden' 
+          }}
+        >
+          <div 
+            className="relative pointer-events-auto"
+            style={{ width: '80vw', height: '80vh', maxWidth: '1280px', maxHeight: '720px' }}
+          >
+            <iframe
+              ref={youtubeIframeRef}
+              src={`https://www.youtube.com/embed/${(allMedia.find(m => m.type === 'youtube') as { type: 'youtube'; videoId: string })?.videoId}?autoplay=1&enablejsapi=1&rel=0`}
+              title="YouTube video player"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="w-full h-full rounded-lg"
+            />
+          </div>
         </div>
       )}
     </div>
