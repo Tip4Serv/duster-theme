@@ -505,23 +505,13 @@ function CheckoutContent() {
                 </div>
 
                 {/* Error Display */}
-                {checkoutError && (
-                  <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-red-500">Checkout Failed</p>
-                      <p className="text-sm text-red-500/80 mt-1">{checkoutError}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {mutation.isError && (
+                {(checkoutError || mutation.isError) && (
                   <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold text-red-500">Checkout Failed</p>
                       <p className="text-sm text-red-500/80 mt-1">
-                        {mutation.error?.message || 'An error occurred during checkout. Please try again.'}
+                        {checkoutError || mutation.error?.message || 'An error occurred during checkout. Please try again.'}
                       </p>
                     </div>
                   </div>
