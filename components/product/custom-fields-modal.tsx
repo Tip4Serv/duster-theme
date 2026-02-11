@@ -360,25 +360,28 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
                         
                         return (
                           <div key={field.id} className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                              {field.name}
-                              {field.required && <span className="text-accent">*</span>}
-                              {field.instruction && (
-                                <div className="relative group">
-                                  <HelpCircle className="w-4 h-4 text-muted hover:text-primary cursor-help transition-colors" />
-                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 w-64">
-                                    <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-xs text-foreground whitespace-pre-wrap">
-                                      {field.instruction}
+                            {/* Label - hidden for number/range as they have custom header */}
+                            {field.type !== 'number' && field.type !== 'range' && (
+                              <label className="text-sm font-medium flex items-center gap-2">
+                                {field.name}
+                                {field.required && <span className="text-accent">*</span>}
+                                {field.instruction && (
+                                  <div className="relative group">
+                                    <HelpCircle className="w-4 h-4 text-muted hover:text-primary cursor-help transition-colors" />
+                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 w-64">
+                                      <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-xs text-foreground whitespace-pre-wrap">
+                                        {field.instruction}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-                              {field.price && field.price > 0 && field.type !== 'selection' && (
-                                <span className="text-primary text-xs">
-                                  +${field.price.toFixed(2)}
-                                </span>
-                              )}
-                            </label>
+                                )}
+                                {field.price && field.price > 0 && field.type !== 'selection' && (
+                                  <span className="text-primary text-xs">
+                                    +${field.price.toFixed(2)}
+                                  </span>
+                                )}
+                              </label>
+                            )}
 
                             {/* Checkbox */}
                             {field.type === 'checkbox' && (
@@ -428,40 +431,47 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
 
                             {/* Number/Range Input */}
                             {(field.type === 'number' || field.type === 'range') && (
-                              <div className="space-y-2">
-                                {field.number_type === 'range' ? (
-                                  <>
+                              <>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm text-muted">
+                                    {field.name}
+                                  </span>
+                                  <span className="text-sm font-medium">
+                                    {customFields[key] !== undefined ? customFields[key] : (field.default_value ?? field.minimum ?? 0)}
+                                  </span>
+                                </div>
+                                <div className="space-y-2">
+                                  {field.number_type === 'range' ? (
+                                    <>
+                                      <input
+                                        type="range"
+                                        min={field.minimum || 0}
+                                        max={field.maximum || 100}
+                                        step={field.step || 1}
+                                        value={customFields[key] ?? field.default_value ?? field.minimum ?? 0}
+                                        onChange={(e) => handleCustomFieldChange(field, parseFloat(e.target.value))}
+                                        className="w-full accent-primary"
+                                      />
+                                      <div className="flex justify-between text-sm text-muted">
+                                        <span>{field.minimum || 0}</span>
+                                        <span>{field.maximum || 100}</span>
+                                      </div>
+                                    </>
+                                  ) : (
                                     <input
-                                      type="range"
-                                      min={field.minimum || 0}
-                                      max={field.maximum || 100}
+                                      type="number"
+                                      min={field.minimum}
+                                      max={field.maximum}
                                       step={field.step || 1}
-                                      value={customFields[key] || field.default_value || field.minimum || 0}
+                                      value={customFields[key] ?? ''}
                                       onChange={(e) => handleCustomFieldChange(field, parseFloat(e.target.value))}
-                                      className="w-full accent-primary"
+                                      placeholder={field.default_value?.toString() || ''}
+                                      required={field.required}
+                                      className="w-full px-4 py-3 rounded-lg bg-background border border-border focus:border-primary outline-none transition-colors"
                                     />
-                                    <div className="flex justify-between text-sm text-muted">
-                                      <span>{field.minimum || 0}</span>
-                                      <span className="text-foreground font-semibold">
-                                        {customFields[key] || field.default_value || field.minimum || 0}
-                                      </span>
-                                      <span>{field.maximum || 100}</span>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <input
-                                    type="number"
-                                    min={field.minimum}
-                                    max={field.maximum}
-                                    step={field.step || 1}
-                                    value={customFields[key] || ''}
-                                    onChange={(e) => handleCustomFieldChange(field, parseFloat(e.target.value))}
-                                    placeholder={field.default_value?.toString() || ''}
-                                    required={field.required}
-                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border focus:border-primary outline-none transition-colors"
-                                  />
-                                )}
-                              </div>
+                                  )}
+                                </div>
+                              </>
                             )}
 
                             {/* Select/Dropdown */}
