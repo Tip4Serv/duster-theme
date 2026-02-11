@@ -1,11 +1,12 @@
 'use client';
 
 import { useCart } from '@/hooks/use-cart';
-import { useStore, useCheckoutIdentifiers, useCheckout, usePrecheckout } from '@/hooks/use-api';
+import { useStore, useCheckoutIdentifiers, useCheckout } from '@/hooks/use-api';
 import { ShoppingCart, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { CheckoutUser } from '@/lib/schemas';
+import { openTip4ServCheckout, type Tip4ServProductSimple } from '@/lib/tip4serv';
 
 const IDENTIFIER_LABELS: Record<string, string> = {
   email: 'Email Address',  username: 'Username',  minecraft_username: 'Minecraft Username',
@@ -45,8 +46,7 @@ function CheckoutContent() {
   const [flagsLoaded, setFlagsLoaded] = useState(false);
   
   const checkoutMutation = useCheckout(storeId || '');
-  const precheckoutMutation = usePrecheckout(storeId || '');
-  const mutation = handleCustomerIdentification ? checkoutMutation : precheckoutMutation;
+  const mutation = checkoutMutation;
   
   const [formData, setFormData] = useState<Partial<CheckoutUser>>({
     email: '',
@@ -173,6 +173,71 @@ function CheckoutContent() {
       return;
     }
 
+    // In precheckout mode (handleCustomerIdentification=false), use tip4serv.js
+    if (!handleCustomerIdentification) {
+      // Build cart in tip4serv.js Expert format
+      const tip4servProducts: Tip4ServProductSimple[] = cart.items.map(item => {
+        const product: Tip4ServProductSimple = {
+          product: item.product.id,
+          quantity: item.quantity,
+        };
+        
+        // Handle subscription type
+        if (item.product.subscription && item.subscriptionType === 'onetime') {
+          product.subscription = false; // Disable auto-renewal
+        }
+        
+        // Handle custom fields
+        if (item.customFields && Object.keys(item.customFields).length > 0) {
+          product.customFields = item.customFields;
+        }
+        
+        // Handle server selection
+        if (item.serverSelection !== undefined && item.serverSelection !== null) {
+          product.serverSelection = item.serverSelection;
+        }
+        
+        // Handle donation amount
+        if (item.donationAmount !== undefined && item.donationAmount !== null && item.donationAmount > 0) {
+          product.donationAmount = item.donationAmount;
+        }
+        
+        return product;
+      });
+
+      try {
+        setIsRedirecting(true);
+        
+        await openTip4ServCheckout({
+          storeId: storeId ? parseInt(storeId, 10) : undefined,
+          products: tip4servProducts,
+          successUrl: `${window.location.origin}/checkout/success`,
+          cancelUrl: `${window.location.origin}/checkout/canceled`,
+        });
+        
+        // If we get here, checkout was successful or pending
+        // The library will handle the redirect
+      } catch (error) {
+        console.error('Tip4Serv checkout error:', error);
+        setIsRedirecting(false);
+        
+        // Check if error has htmlMessage property (Tip4ServError)
+        if (error && typeof error === 'object' && 'htmlMessage' in error) {
+          setCheckoutError((error as { htmlMessage: string }).htmlMessage);
+        } else if (error instanceof Error) {
+          if (error.message === 'Checkout cancelled') {
+            // User cancelled, no need to show error
+            return;
+          }
+          setCheckoutError(error.message);
+        } else {
+          setCheckoutError('An error occurred during checkout. Please try again.');
+        }
+      }
+      return;
+    }
+
+    // Standard checkout mode (handleCustomerIdentification=true)
     if (!validateForm()) {
       return;
     }
@@ -238,11 +303,8 @@ function CheckoutContent() {
       redirect_success_checkout: `${window.location.origin}/checkout/success`,
       redirect_canceled_checkout: `${window.location.origin}/checkout/canceled`,
       redirect_pending_checkout: `${window.location.origin}/checkout/pending`,
+      user: finalFormData,
     };
-
-    if (handleCustomerIdentification) {
-      checkoutData.user = finalFormData;
-    }
 
     try {
       setIsRedirecting(true);
@@ -443,6 +505,16 @@ function CheckoutContent() {
                 </div>
 
                 {/* Error Display */}
+                {checkoutError && (
+                  <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-500">Checkout Failed</p>
+                      <p className="text-sm text-red-500/80 mt-1">{checkoutError}</p>
+                    </div>
+                  </div>
+                )}
+                
                 {mutation.isError && (
                   <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />

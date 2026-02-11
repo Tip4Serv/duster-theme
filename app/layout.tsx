@@ -4,6 +4,7 @@ import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { Tip4ServScript } from "@/components/providers/tip4serv-script";
 import { getStoreWhoami } from "@/lib/api-client";
 
 const inter = Inter({
@@ -34,6 +35,7 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>
+          <Tip4ServScript />
           <div className="min-h-screen flex flex-col">
             <Header initialStore={initialStore} />
             <main className="flex-1">

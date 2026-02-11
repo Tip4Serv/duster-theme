@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useStore } from '@/hooks/use-api';
+import { openTip4ServCheckout, type Tip4ServProductSimple } from '@/lib/tip4serv';
 
 export default function CartPage() {
   const cart = useCart();
@@ -50,78 +51,63 @@ export default function CartPage() {
       return;
     }
 
-    // Precheckout flow (direct API call)
+    // Precheckout flow using tip4serv.js
     setPrecheckoutError(null);
     setIsCheckingOut(true);
 
-    const precheckoutData = {
-      products: cart.items.map(item => {
-        const product: any = {
-          product_id: item.product.id,
-          type: item.product.subscription && item.subscriptionType === 'recurring' ? 'subscribe' : 'addtocart',
-          quantity: item.quantity,
-        };
-        
-        if (item.customFields && Object.keys(item.customFields).length > 0) {
-          product.custom_fields = item.customFields;
-        }
-        
-        if (item.serverSelection !== undefined && item.serverSelection !== null) {
-          product.server_selection = item.serverSelection;
-        }
-        
-        if (item.donationAmount !== undefined && item.donationAmount !== null && item.donationAmount > 0) {
-          product.donation_amount = item.donationAmount;
-        }
-        
-        return product;
-      }),
-      redirect_success_checkout: `${window.location.origin}/checkout/success`,
-      redirect_canceled_checkout: `${window.location.origin}/checkout/canceled`,
-      redirect_pending_checkout: `${window.location.origin}/checkout/pending`,
-    };
+    // Build cart in tip4serv.js Expert format
+    const tip4servProducts: Tip4ServProductSimple[] = cart.items.map(item => {
+      const product: Tip4ServProductSimple = {
+        product: item.product.id,
+        quantity: item.quantity,
+      };
+      
+      // Handle subscription type
+      if (item.product.subscription && item.subscriptionType === 'onetime') {
+        product.subscription = false; // Disable auto-renewal
+      }
+      
+      // Handle custom fields
+      if (item.customFields && Object.keys(item.customFields).length > 0) {
+        product.customFields = item.customFields;
+      }
+      
+      // Handle server selection
+      if (item.serverSelection !== undefined && item.serverSelection !== null) {
+        product.serverSelection = item.serverSelection;
+      }
+      
+      // Handle donation amount
+      if (item.donationAmount !== undefined && item.donationAmount !== null && item.donationAmount > 0) {
+        product.donationAmount = item.donationAmount;
+      }
+      
+      return product;
+    });
 
     try {
-      const response = await fetch(`/api/tip4serv/precheckout?store=${store.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(precheckoutData),
+      await openTip4ServCheckout({
+        storeId: store.id,
+        products: tip4servProducts,
+        successUrl: `${window.location.origin}/checkout/success`,
+        cancelUrl: `${window.location.origin}/checkout/canceled`,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        let message = 'Failed to start checkout. Please try again.';
-        try {
-          const parsed = errorText ? JSON.parse(errorText) : null;
-          if (parsed?.error) {
-            message = parsed.error;
-          } else if (parsed?.details) {
-            message = parsed.details;
-          } else if (parsed?.message) {
-            message = parsed.message;
-          }
-        } catch {
-          if (errorText) {
-            message = errorText.slice(0, 200);
-          }
-        }
-        setPrecheckoutError(message);
-        setIsCheckingOut(false);
-        return;
-      }
-
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setIsCheckingOut(false);
-      }
+      
+      // If we get here, checkout was successful or pending
+      // The library will handle the redirect
     } catch (error) {
-      console.error('Checkout error:', error);
-      setPrecheckoutError('Failed to start checkout. Please try again.');
+      console.error('Tip4Serv checkout error:', error);
       setIsCheckingOut(false);
+      
+      if (error instanceof Error) {
+        if (error.message === 'Checkout cancelled') {
+          // User cancelled, no need to show error
+          return;
+        }
+        setPrecheckoutError(error.message);
+      } else {
+        setPrecheckoutError('Failed to start checkout. Please try again.');
+      }
     }
   };
 
@@ -241,9 +227,15 @@ export default function CartPage() {
                         return price.toFixed(2);
                       })()}
                     </p>
-                    {item.product.subscription && (
+                    {item.product.subscription && item.subscriptionType === 'recurring' && (
                       <p className="text-xs text-muted">
                         Subscription - Renews every {item.product.period_num} {item.product.duration_periodicity}
+                        {item.product.period_num && item.product.period_num > 1 ? 's' : ''}
+                      </p>
+                    )}
+                    {item.product.subscription && item.subscriptionType === 'onetime' && (
+                      <p className="text-xs text-muted">
+                        One-time purchase - {item.product.period_num} {item.product.duration_periodicity}
                         {item.product.period_num && item.product.period_num > 1 ? 's' : ''}
                       </p>
                     )}
