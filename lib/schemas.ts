@@ -127,6 +127,12 @@ export const CustomFieldOptionSchema = z.object({
   price: z.coerce.number(),
 });
 
+export const CustomFieldParentSchema = z.object({
+  customFieldId: z.number(),
+  type: z.string(),
+  name: z.string(),
+});
+
 export const CustomFieldSchema = z.object({
   id: z.number(),
   order: z.number(),
@@ -143,9 +149,11 @@ export const CustomFieldSchema = z.object({
   number_type: z.string().optional(),
   price: z.coerce.number().optional(),
   options: z.array(CustomFieldOptionSchema).optional(),
+  parent: CustomFieldParentSchema.optional(),
 });
 
 export type CustomFieldOption = z.infer<typeof CustomFieldOptionSchema>;
+export type CustomFieldParent = z.infer<typeof CustomFieldParentSchema>;
 export type CustomField = z.infer<typeof CustomFieldSchema>;
 
 // Custom Rule

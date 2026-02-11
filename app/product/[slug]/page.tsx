@@ -240,10 +240,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       return;
     }
     
-    // Validate required custom fields
+    // Validate required custom fields (only for visible fields)
     if (product.custom_fields) {
       const missingRequired = product.custom_fields.some(
-        (field) => field.required && !customFields[field.marker || field.id.toString()]
+        (field) => isFieldVisible(field) && field.required && !customFields[field.marker || field.id.toString()]
       );
       if (missingRequired) {
         setError('Please fill in all required fields');
@@ -309,10 +309,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       return;
     }
     
-    // Validate required custom fields
+    // Validate required custom fields (only for visible fields)
     if (product.custom_fields) {
       const missingRequired = product.custom_fields.some(
-        (field) => field.required && !customFields[field.marker || field.id.toString()]
+        (field) => isFieldVisible(field) && field.required && !customFields[field.marker || field.id.toString()]
       );
       if (missingRequired) {
         setError('Please fill in all required fields');
@@ -346,10 +346,31 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
   const handleCustomFieldChange = (field: CustomField, value: any) => {
     const key = field.id.toString();
-    setCustomFields((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setCustomFields((prev) => {
+      const newState = {
+        ...prev,
+        [key]: value,
+      };
+      
+      // If this is a checkbox being unchecked, clear all child fields
+      if (field.type === 'checkbox' && !value && product?.custom_fields) {
+        product.custom_fields.forEach((childField) => {
+          if (childField.parent?.customFieldId === field.id) {
+            delete newState[childField.id.toString()];
+          }
+        });
+      }
+      
+      return newState;
+    });
+  };
+
+  // Check if a custom field should be visible based on its parent checkbox state
+  const isFieldVisible = (field: CustomField): boolean => {
+    if (!field.parent) return true;
+    // Parent is always a checkbox - check if it's checked
+    const parentKey = field.parent.customFieldId.toString();
+    return !!customFields[parentKey];
   };
 
   const calculateTotalPrice = () => {
@@ -362,6 +383,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     
     if (product?.custom_fields) {
       product.custom_fields.forEach((field) => {
+        // Only count visible fields (parent checkbox is checked or no parent)
+        if (!isFieldVisible(field)) return;
+        
         const key = field.id.toString();
         const value = customFields[key];
         
@@ -387,6 +411,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     
     if (product?.custom_fields) {
       product.custom_fields.forEach((field) => {
+        // Only count visible fields (parent checkbox is checked or no parent)
+        if (!isFieldVisible(field)) return;
+        
         const key = field.id.toString();
         const value = customFields[key];
         
@@ -732,6 +759,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                   <h2 className="text-lg font-semibold">Customize Your Order</h2>
                   {product.custom_fields
                     .sort((a, b) => a.order - b.order)
+                    .filter((field) => isFieldVisible(field))
                     .map((field) => {
                       const key = field.marker || field.id.toString();
                       
