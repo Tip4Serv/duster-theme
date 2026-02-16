@@ -208,7 +208,7 @@ export default function CartPage() {
                         // Add custom field prices
                         if (item.customFields && 'custom_fields' in item.product && item.product.custom_fields) {
                           item.product.custom_fields.forEach((field) => {
-                            const key = field.id.toString();
+                            const key = field.marker || field.id.toString();
                             const value = item.customFields?.[key];
                             
                             if (field.type === 'checkbox' && value) {
@@ -314,7 +314,7 @@ export default function CartPage() {
                             // Add custom field prices
                             if (item.customFields && 'custom_fields' in item.product && item.product.custom_fields) {
                               item.product.custom_fields.forEach((field) => {
-                                const key = field.id.toString();
+                                const key = field.marker || field.id.toString();
                                 const value = item.customFields?.[key];
                                 
                                 if (field.type === 'checkbox' && value) {

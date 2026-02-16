@@ -116,6 +116,7 @@ export function ProductCard({ product, hideFeaturedBadge = false }: ProductCardP
                 className={`object-contain transition-transform duration-300 ${
                   isOutOfStock ? '' : 'group-hover:scale-105'
                 }`}
+                unoptimized
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">

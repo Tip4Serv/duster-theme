@@ -345,7 +345,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   };
 
   const handleCustomFieldChange = (field: CustomField, value: any) => {
-    const key = field.id.toString();
+    const key = field.marker || field.id.toString();
     setCustomFields((prev) => {
       const newState = {
         ...prev,
@@ -356,7 +356,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       if (field.type === 'checkbox' && !value && product?.custom_fields) {
         product.custom_fields.forEach((childField) => {
           if (childField.parent?.customFieldId === field.id) {
-            delete newState[childField.id.toString()];
+            delete newState[childField.marker || childField.id.toString()];
           }
         });
       }
@@ -369,7 +369,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const isFieldVisible = (field: CustomField): boolean => {
     if (!field.parent) return true;
     // Parent is always a checkbox - check if it's checked
-    const parentKey = field.parent.customFieldId.toString();
+    // Find the parent field to get its marker
+    const parentField = product?.custom_fields?.find(f => f.id === field.parent?.customFieldId);
+    const parentKey = parentField?.marker || field.parent.customFieldId.toString();
     return !!customFields[parentKey];
   };
 
@@ -386,7 +388,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
         // Only count visible fields (parent checkbox is checked or no parent)
         if (!isFieldVisible(field)) return;
         
-        const key = field.id.toString();
+        const key = field.marker || field.id.toString();
         const value = customFields[key];
         
         if (field.type === 'checkbox' && value) {
@@ -414,7 +416,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
         // Only count visible fields (parent checkbox is checked or no parent)
         if (!isFieldVisible(field)) return;
         
-        const key = field.id.toString();
+        const key = field.marker || field.id.toString();
         const value = customFields[key];
         
         if (field.type === 'checkbox' && value) {

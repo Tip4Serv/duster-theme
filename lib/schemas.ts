@@ -129,8 +129,8 @@ export const CustomFieldOptionSchema = z.object({
 
 export const CustomFieldParentSchema = z.object({
   customFieldId: z.number(),
-  type: z.string(),
-  name: z.string(),
+  type: z.string().optional(),
+  name: z.string().optional(),
 });
 
 export const CustomFieldSchema = z.object({

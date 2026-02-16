@@ -5,8 +5,9 @@ import { useStore, useCheckoutIdentifiers, useCheckout } from '@/hooks/use-api';
 import { ShoppingCart, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { CheckoutUser } from '@/lib/schemas';
+import type { CheckoutUser, ProductDetailed } from '@/lib/schemas';
 import { openTip4ServCheckout, type Tip4ServProductSimple } from '@/lib/tip4serv';
+import { convertCustomFieldsForApi } from '@/lib/cart-utils';
 
 const IDENTIFIER_LABELS: Record<string, string> = {
   email: 'Email Address',  username: 'Username',  minecraft_username: 'Minecraft Username',
@@ -187,9 +188,10 @@ function CheckoutContent() {
           product.subscription = false; // Disable auto-renewal
         }
         
-        // Handle custom fields
+        // Handle custom fields - convert marker keys to ID keys
         if (item.customFields && Object.keys(item.customFields).length > 0) {
-          product.customFields = item.customFields;
+          const productCustomFields = 'custom_fields' in item.product ? (item.product as ProductDetailed).custom_fields : undefined;
+          product.customFields = convertCustomFieldsForApi(item.customFields, productCustomFields);
         }
         
         // Handle server selection
@@ -286,8 +288,10 @@ function CheckoutContent() {
           quantity: item.quantity,
         };
         
+        // Handle custom fields - convert marker keys to ID keys
         if (item.customFields && Object.keys(item.customFields).length > 0) {
-          product.custom_fields = item.customFields;
+          const productCustomFields = 'custom_fields' in item.product ? (item.product as ProductDetailed).custom_fields : undefined;
+          product.custom_fields = convertCustomFieldsForApi(item.customFields, productCustomFields);
         }
         
         if (item.serverSelection !== undefined && item.serverSelection !== null) {
