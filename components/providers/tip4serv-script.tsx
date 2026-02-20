@@ -28,7 +28,7 @@ export function Tip4ServScript() {
 
     // Create and append the script
     const script = document.createElement('script');
-    script.src = 'https://js.tip4serv.com/tip4serv.min.js?v=1.0.8';
+    script.src = 'https://js.tip4serv.com/tip4serv.min.js?v=1.0.11';
     script.setAttribute('data-store-id', store.id.toString());
     script.async = true;
     

@@ -214,7 +214,6 @@ function CheckoutContent() {
           storeId: storeId ? parseInt(storeId, 10) : undefined,
           products: tip4servProducts,
           successUrl: `${window.location.origin}/checkout/success`,
-          cancelUrl: `${window.location.origin}/checkout/canceled`,
         });
         
         // If we get here, checkout was successful or pending
