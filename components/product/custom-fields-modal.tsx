@@ -75,6 +75,23 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
     }
   }, [product, donationAmount]);
 
+  // Initialize number/range custom fields with their default values
+  useEffect(() => {
+    if (product.custom_fields) {
+      const defaults: Record<string, any> = {};
+      product.custom_fields.forEach((field) => {
+        const key = field.marker || field.id.toString();
+        if ((field.type === 'number' || field.type === 'range') && customFields[key] === undefined) {
+          const defaultVal = field.default_value ?? field.minimum ?? 0;
+          defaults[key] = typeof defaultVal === 'string' ? parseFloat(defaultVal) : defaultVal;
+        }
+      });
+      if (Object.keys(defaults).length > 0) {
+        setCustomFields((prev) => ({ ...defaults, ...prev }));
+      }
+    }
+  }, [product]);
+
   const calculateTotalPrice = () => {
     // For donation products, the donation amount is the total price
     if (product.donation && donationAmount) {
@@ -157,7 +174,14 @@ export function CustomFieldsModal({ product, isOpen, onClose }: CustomFieldsModa
     // Validate required custom fields (only for visible fields)
     if (product.custom_fields) {
       const missingRequired = product.custom_fields.some(
-        (field) => isFieldVisible(field) && field.required && !customFields[field.marker || field.id.toString()]
+        (field) => {
+          if (!isFieldVisible(field) || !field.required) return false;
+          const value = customFields[field.marker || field.id.toString()];
+          if (field.type === 'number' || field.type === 'range') {
+            return value === undefined || value === null;
+          }
+          return !value;
+        }
       );
       if (missingRequired) {
         setError('Please fill in all required fields');

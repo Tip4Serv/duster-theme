@@ -57,3 +57,8 @@ body {
     linear-gradient(90deg, rgba(212, 255, 0, 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
 }
+
+.tip4serv-overlay-logo {
+  margin-left: auto;
+  margin-right: auto;
+}
