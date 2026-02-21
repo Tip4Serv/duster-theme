@@ -4,6 +4,8 @@
 
 A complete, modern storefront application built with Next.js that demonstrates full integration with the Tip4Serv API. This is a reference implementation for developers building checkout-enabled marketplaces.
 
+🔗 **[Live Demo → duster-theme.vercel.app](https://duster-theme.vercel.app/)**
+
 ## Overview
 
 Duster Theme is a production-ready example of:
