@@ -728,10 +728,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                     {product.period_num && product.period_num > 1 ? `${product.period_num} ` : ''}{product.duration_periodicity}
                     {product.period_num && product.period_num > 1 ? 's' : ''}
                   </p>
-                  {product.trial && product.trial > 0 ? (
+                  {product.trial ? (
                     <p className="text-sm mt-2">
-                      <span className="font-semibold text-primary">Free Trial:</span> {product.trial} day
-                      {product.trial > 1 ? 's' : ''}
+                      <span className="font-semibold text-primary">Free Trial:</span> Included
                     </p>
                   ) : null}
                 </div>

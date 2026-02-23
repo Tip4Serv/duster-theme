@@ -159,6 +159,16 @@ export function Footer({ initialStore }: FooterProps) {
 
         <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted">
           <p>&copy; {currentYear} {store?.title || 'Duster Theme'}. Powered by Tip4Serv API.</p>
+          <p className="mt-2">
+            <a
+              href="https://github.com/Tip4Serv/duster-theme"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              Source Code
+            </a>
+          </p>
         </div>
       </div>
     </footer>
