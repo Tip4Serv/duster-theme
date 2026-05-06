@@ -449,7 +449,7 @@ This project is provided as-is for integration with Tip4Serv.
 
 ## Support
 
-- [Tip4Serv API Docs](https://tip4serv.com/api-docs)
+- [Tip4Serv API Docs](https://tip4serv.gitbook.io/tip4serv-api)
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Tailwind CSS](https://tailwindcss.com/docs)
 
